@@ -24,6 +24,24 @@ struct UploadConfig {
     UploadConfig() : enabled(false) {}
 };
 
+enum TokenType {
+    TOK_WORD,     // identifiers + values: listen, 127.0.0.1, /upload/, on, 404, etc.
+    TOK_LBRACE,   // {
+    TOK_RBRACE,   // }
+    TOK_SEMI,     // ;
+    TOK_EOF       // end of input (optional but very convenient for parser)
+};
+
+struct Token {
+    TokenType type;
+    std::string text; // only used for TOK_WORD (and maybe TOK_EOF = "")
+    int line;
+
+    Token() : type(TOK_EOF), text(""), line(1) {}
+    Token(TokenType t, const std::string& s, int ln) : type(t), text(s), line(ln) {}
+};
+typedef std::vector<Token> TokenList;
+
 typedef std::set<std::string> MethodSet;
 typedef std::map<std::string, std::string> CgiMap; // ".py" -> "/usr/bin/python3" ...
 

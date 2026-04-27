@@ -8,7 +8,13 @@
 class Socket
 {
 public:
-    Socket(int domain, int service, int protocol , int port, u_long interface);
+    Socket(
+            int domain,
+            int service,
+            int protocol,
+            int port,
+            u_long interface
+        );
     ~Socket();
     int get_socket();
     struct sockaddr_in get_address();

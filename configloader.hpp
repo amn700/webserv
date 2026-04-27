@@ -1,7 +1,7 @@
 #ifndef CONFIGLOADER_HPP
 #define CONFIGLOADER_HPP
 
-#include "ConfigTypes.hpp"
+#include "configtypes.hpp"
 #include <string>
 #include <vector>
 
