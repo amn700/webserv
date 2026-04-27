@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <iostream>
 
+
 Socket::Socket(int domain, int service, int protocol , int port, u_long interface)
 {
     this->address.sin_family = domain;
@@ -11,6 +12,8 @@ Socket::Socket(int domain, int service, int protocol , int port, u_long interfac
     this->_socket = socket(domain, service, protocol);
     //did socket worked and what if it didnt 
     // mazal ma3rftch XD
+    if (_socket < 0)
+        exit(1);
 }
 
 Socket::~Socket(){};
