@@ -9,7 +9,7 @@ int main (int argc, char ** argv)
     // configuration file lexing/parsing
     ConfigLoader con;
     con.loadFromFile(argv[1]);
-
+    
     // components setup
     // main loop
 }
