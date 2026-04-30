@@ -18,6 +18,22 @@ std::string tokenTypeToString(TokenType t)
     }
 }
 
+// directive name, is_set, is_mandatory, is_multiple_allowed
+typedef std::map<std::string, std::tuple<bool, bool, bool>> ServerContent;
+
+struct DirectiveInfo {
+    ServerContent content;
+    DirectiveInfo() {
+        content["listen"] = std::make_tuple(false, true, true);
+        content["server_name"] = std::make_tuple(false, false, false);
+        content["root"] = std::make_tuple(false, false, false);
+        content["client_max_body_size"] = std::make_tuple(false, false, false);
+        content["error_page"] = std::make_tuple(false, false, true);
+        content["location"] = std::make_tuple(false, false, true);
+    }
+};
+
+
 static std::vector<std::string> readFileLines(const std::string& path)
 {
     std::ifstream in(path.c_str());
@@ -108,17 +124,6 @@ void expectWord(
     ++it;
 }
 
-void parse_validate(std::vector<Token> tokens, Config conf)
-{
-    std::vector<Token>::const_iterator it = tokens.begin();
-    // for (it = tokens.begin(); it != tokens.end(); ++it)
-    //     {}
-        expectWord(it, tokens.end(), "server");
-        expect(it, tokens.end(), TOK_LBRACE);
-        
-    // }
-}
-
 Config ConfigLoader:: loadFromFile(const std::string& path)
 {
     Config conf;
@@ -137,3 +142,75 @@ Config ConfigLoader:: loadFromFile(const std::string& path)
     
     return conf;
 }
+
+// all possible server block content
+// make sure the data bellow are correct
+/*
+    listen ::: mandatory, at least one; multiple allowed
+        ex: listen ip:port;
+    server_name ::: optional, only one allowed
+        ex: server_name site1.local;
+    root ::: mandatory, only one allowed
+        ex: root /var/www/html/;
+    client_max_body_size ::: optional, only one allowed; default 0 (use default)
+        ex: client_max_body_size 10M;
+    error_page ::: optional, multiple allowed; default empty
+        ex: error_page 404 /404.html;
+    location ::: optional, multiple allowed; default empty
+        ex: location /upload/ { ... }
+*/
+
+//all possible location block content
+/*
+    prefix ::: mandatory, only one allowed;
+        ex: /upload/ /cgi-bin/
+    allowed_methods  ::: optional, only one allowed; default empty (use server/default)
+        ex: GET POST DELETE
+    redirect  ::: optional, only one allowed; default none
+        ex: return 301 http://example.com/;
+    root    ::: optional, only one allowed; default none (use server/default)
+        ex: root /var/www/html/upload/;
+    autoindex  ::: optional, only one allowed; default false
+        ex: autoindex on;
+    index  ::: optional, only one allowed; default empty
+        ex: index index.html index.htm;
+    upload  ::: optional, only one allowed; default none
+        ex: upload /var/www/html/upload/;
+    cgi  ::: optional, multiple allowed; default empty
+        ex: cgi .php /usr/bin/php-cgi;
+    return  ::: optional, only one allowed; default none
+        ex: return 301 http://example.com/;
+*/
+
+
+void parse_validate(std::vector<Token> tokens, Config& conf)
+{
+    std::vector<Token>::const_iterator it;
+    
+    for (it = tokens.begin(); it != tokens.end(); ++it)
+    {
+        ServerConfig server;
+        expectWord(it, tokens.end(), "server");
+        expect(it, tokens.end(), TOK_LBRACE);
+
+        for (; it != tokens.end(); ++it)
+        {
+            if (it->type == TOK_RBRACE)
+                break;
+
+            if (it->type != TOK_WORD)
+                throw std::runtime_error("Parse error: expected a directive");
+
+            std::string directive = to_lower(it->text);
+
+            if (directive == "server_name")
+            {
+            }
+            else
+                throw std::runtime_error("Parse error: unknown directive '" + directive + "'");
+        }
+
+        conf.servers.push_back(server);
+    }
+}
+
