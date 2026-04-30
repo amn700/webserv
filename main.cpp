@@ -9,8 +9,7 @@ int main (int argc, char ** argv)
     // components setup
     // main loop
     // 1. Your parser creates the object
-    std::string raw_string = argv[1];
-    HttpRequest request = RequestParser::parse(raw_string);
+
 
 // // 2. You pass it to response person
 // ResponseBuilder response_builder;
