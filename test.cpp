@@ -25,8 +25,14 @@ struct sockaddr {
 };
 
 */
+
 int main() {
-    Socket sock = Socket(AF_INET, SOCK_STREAM, 0, 8080, INADDR_ANY);
+    Sockets all;
+    
+    for (;;)
+        all.push_back() = Socket(AF_INET, SOCK_STREAM, 0, 8080, INADDR_ANY);;
+    // Socket sock = Socket(AF_INET, SOCK_STREAM, 0, 8080, INADDR_ANY);
+    all.push_back(Socket(sock));
 
     int fd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -56,54 +62,4 @@ int main() {
     }
     close(sock.get_socket());
     return 0;
-}
-
-
-// Lexer.hpp (or inside a .cpp)
-#include <vector>
-#include <string>
-
-
-
-
-TokenList lex(const std::vector<std::string>& lines)
-{
-    TokenList out;
-
-    for (int ln = 0; ln < lines.size(); ++ln) {
-        const std::string& s = lines[ln];
-        const int lineNo = ln + 1;
-
-        size_t i = 0;
-        while (i < s.size()) {
-
-            // 1) skip whitespace
-            while (i < s.size() && isSpace(s[i]))
-                ++i;
-            if (i >= s.size())
-                break;
-
-            // 2) comment: ignore rest of the line
-            if (s[i] == '#')
-                break;
-
-            // 3) single-character tokens
-            if (s[i] == '{') { out.push_back(Token(TOK_LBRACE, "{", lineNo)); ++i; continue; }
-            if (s[i] == '}') { out.push_back(Token(TOK_RBRACE, "}", lineNo)); ++i; continue; }
-            if (s[i] == ';') { out.push_back(Token(TOK_SEMI,   ";", lineNo)); ++i; continue; }
-
-            // 4) WORD token: read until whitespace/symbol/comment
-            size_t start = i;
-            while (i < s.size()) {
-                char c = s[i];
-                if (isSpace(c) || c == '{' || c == '}' || c == ';' || c == '#')
-                    break;
-                ++i;
-            }
-            out.push_back(Token(TOK_WORD, s.substr(start, i - start), lineNo));
-        }
-    }
-
-    out.push_back(Token(TOK_EOF, "", static_cast<int>(lines.size() + 1)));
-    return out;
 }

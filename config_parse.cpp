@@ -74,16 +74,11 @@ void parse_validate(const std::vector<Token>& tokens, Config& conf)
         DirectiveInfo dir;
 
         expectWord(it, tokens.end(), "server");
+        int openBraceLine = (it != tokens.end() ? it->line : -1);
         expect(it, tokens.end(), TOK_LBRACE);
 
-        while (it != tokens.end())
+        while (it != tokens.end() && it->type != TOK_RBRACE && it->type != TOK_EOF)
         {
-            if (it == tokens.end() || it->type == TOK_EOF)
-                throw std::runtime_error(
-                    "Parse error: unexpected end of file (missing '}' to close server block), "
-                    "last seen at line " + std::to_string(lastLine));
-            if (it->type == TOK_RBRACE)
-                break;
             if (it->type != TOK_WORD)
                 throw std::runtime_error("Parse error: expected a directive at line " + std::to_string(it->line));
             
@@ -107,10 +102,15 @@ void parse_validate(const std::vector<Token>& tokens, Config& conf)
             }
 
             else {
-                throw std::runtime_error("Parse error: unknown directive '" + it->text +
-                                         "' at line " + std::to_string(it->line));
+                throw std::runtime_error("Parse error: unknown directive '" + it->text + "' at line " + std::to_string(it->line));
             }
         }
+        if (it == tokens.end() || it->type == TOK_EOF) {
+            throw std::runtime_error(
+                "Parse error: unexpected end of file; missing '}' to close server block opened at line " +
+                std::to_string(openBraceLine)
+            );
+}
         expect(it, tokens.end(), TOK_RBRACE);
 
         conf.servers.push_back(server);
@@ -186,7 +186,15 @@ Config ConfigLoader:: loadFromFile(const std::string& path)
         std::vector<Token> tokens = tokinizer(lines);
         // for (size_t i = 0; i < tokens.size(); i++)
         //     std::cout << tokenTypeToString(tokens[i].type) << " " << tokens[i].text << " " << tokens[i].line <<std::endl;
-        parse_validate(tokens, conf);
+       parse_validate(tokens, conf);
+
+        for (size_t i = 0; i < conf.servers.size(); ++i) {
+            for (size_t j = 0; j < conf.servers[i].listens.size(); ++j) {
+                std::cout << conf.servers[i].listens[j].host
+                        << ":" << conf.servers[i].listens[j].port
+                        << std::endl;
+            }
+        }
     }
     catch(const std::exception& e)
     {

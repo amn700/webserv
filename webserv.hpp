@@ -4,6 +4,7 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <vector>
 
 class Socket
 {
@@ -25,6 +26,8 @@ private:
     int _socket;
     int connection;
 };
+
+typedef std::vector<Socket> Sockets;
 
 #endif
 
