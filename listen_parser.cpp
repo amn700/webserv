@@ -3,23 +3,14 @@
 #include <cctype>
 #include <cstdlib>
 #include "configtypes.hpp"
-#include "configloader.hpp"
-#include "webserv.hpp"
-#include <fstream>
-#include <sstream>
-#include <stdexcept>
-#include <iostream>
-#include <cctype>
 
-void expect(TokenList::const_iterator& it,
-            TokenList::const_iterator end,
-            TokenType type);
-void expectWord(
-    TokenList::const_iterator& it,
-    TokenList::const_iterator end,
-    const std::string& word
-    );
-std::string to_lower(const std::string& s);
+static std::string toLower(const std::string& s)
+{
+    std::string out = s;
+    for (size_t i = 0; i < out.size(); ++i)
+        out[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(out[i])));
+    return out;
+}
 static int parseIntRange(const std::string& s, int minV, int maxV)
 {
     if (s.empty())
@@ -80,6 +71,9 @@ Listen parseListenIPv4Port4(const std::string& s)
 
     std::string ip = s.substr(0, colon);
     std::string portStr = s.substr(colon + 1);
+
+    if (toLower(ip) == "localhost")
+        ip = "127.0.0.1";
 
     if (!isValidIPv4(ip))
         throw std::runtime_error("listen: invalid IPv4 address: " + ip);

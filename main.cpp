@@ -15,7 +15,13 @@ int main (int argc, char ** argv)
         return std::cerr << "Error: invalid number of parameters\n Usage: ./server [config.conf]"<< std::endl, 1;
     // configuration file lexing/parsing
 
-    Config here = ConfigLoader().loadFromFile(argv[1]);
+    Config here;
+    try {
+        here = ConfigLoader().loadFromFile(argv[1]);
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
     Sockets all;
 
     for (size_t si = 0; si < here.servers.size(); ++si) {
@@ -26,8 +32,9 @@ int main (int argc, char ** argv)
 
             in_addr addr;
             if (inet_pton(AF_INET, host.c_str(), &addr) != 1) {
-            //     throw std::runtime_error("Invalid IPv4 address in listen: " + host);
-            // }
+                std::cerr << "Invalid IPv4 address in listen: " << host << std::endl;
+                return 1;
+            }
 
             all.push_back(Socket(AF_INET, SOCK_STREAM, 0, port, addr.s_addr));
         }

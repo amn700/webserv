@@ -9,6 +9,13 @@
 
 Listen parseListenIPv4Port4(const std::string& s);
 
+static std::string intToString(int v)
+{
+    std::ostringstream oss;
+    oss << v;
+    return oss.str();
+}
+
 
 
 std::string tokenTypeToString(TokenType t)
@@ -40,9 +47,11 @@ void expect(TokenList::const_iterator& it,
             TokenList::const_iterator end,
             TokenType type)
 {
-    if (it == end || it->type != type)
-        throw std::runtime_error("Parse error: expected " + tokenTypeToString_Litteral(type) + " at line " + std::to_string(it->line - 1));
-    it++;
+    if (it == end)
+        throw std::runtime_error("Parse error: expected " + tokenTypeToString_Litteral(type) + " but reached end of file");
+    if (it->type != type)
+        throw std::runtime_error("Parse error: expected " + tokenTypeToString_Litteral(type) + " at line " + intToString(it->line));
+    ++it;
 }
 
 std::string to_lower(const std::string& s)
@@ -61,8 +70,8 @@ void expectWord(
     )
 {
     if (it == end || it->type != TOK_WORD || to_lower(it->text)!= word)
-        throw std::runtime_error("Parse error: expected '" + word + "'" + " at line " + std::to_string(it->line));
-    it++;
+        throw std::runtime_error("Parse error: expected '" + word + "'" + " at line " + (it == end ? std::string("EOF") : intToString(it->line)));
+    ++it;
 }
 void parse_validate(const std::vector<Token>& tokens, Config& conf)
 {
@@ -80,19 +89,19 @@ void parse_validate(const std::vector<Token>& tokens, Config& conf)
         while (it != tokens.end() && it->type != TOK_RBRACE && it->type != TOK_EOF)
         {
             if (it->type != TOK_WORD)
-                throw std::runtime_error("Parse error: expected a directive at line " + std::to_string(it->line));
+                throw std::runtime_error("Parse error: expected a directive at line " + intToString(it->line));
             
             if (to_lower(it->text) == "listen")
             {
                 expectWord(it, tokens.end(), "listen");
 
                 if (dir.content["listen"].seen && !dir.content["listen"].allowMultiple)
-                    throw std::runtime_error("Parse error: duplicate directive 'listen' at line " + std::to_string(it->line));
+                    throw std::runtime_error("Parse error: duplicate directive 'listen' at line " + intToString(it->line));
                 dir.content["listen"].seen = true;
 
 
                 if (it == tokens.end() || it->type != TOK_WORD)
-                    throw std::runtime_error("Parse error: listen expects ip:port at line " + std::to_string(it->line));
+                    throw std::runtime_error("Parse error: listen expects ip:port at line " + (it == tokens.end() ? std::string("EOF") : intToString(it->line)));
 
                 server.listens.push_back(parseListenIPv4Port4(it->text));
 
@@ -102,15 +111,15 @@ void parse_validate(const std::vector<Token>& tokens, Config& conf)
             }
 
             else {
-                throw std::runtime_error("Parse error: unknown directive '" + it->text + "' at line " + std::to_string(it->line));
+                throw std::runtime_error("Parse error: unknown directive '" + it->text + "' at line " + intToString(it->line));
             }
         }
         if (it == tokens.end() || it->type == TOK_EOF) {
             throw std::runtime_error(
                 "Parse error: unexpected end of file; missing '}' to close server block opened at line " +
-                std::to_string(openBraceLine)
+                intToString(openBraceLine)
             );
-}
+        }
         expect(it, tokens.end(), TOK_RBRACE);
 
         conf.servers.push_back(server);
@@ -137,13 +146,13 @@ static std::vector<std::string> readFileLines(const std::string& path)
 
 static bool isSpace(char c) { return (c == ' ' || c == '\t' || c == '\r'); }
 
-std::vector<Token> tokinizer(std::vector<std::string> lines)
+std::vector<Token> tokinizer(const std::vector<std::string>& lines)
 {
     TokenList out;
 
-    for (int ln = 0; ln < lines.size(); ++ln) {
+    for (size_t ln = 0; ln < lines.size(); ++ln) {
         const std::string& s = lines[ln];
-        const int lineNo = ln + 1;
+        const int lineNo = static_cast<int>(ln + 1);
 
         size_t i = 0;
         while (i < s.size())
@@ -178,29 +187,9 @@ std::vector<Token> tokinizer(std::vector<std::string> lines)
 Config ConfigLoader:: loadFromFile(const std::string& path)
 {
     Config conf;
-    try
-    {
-        std::vector<std::string> lines = readFileLines(path);
-        // for (size_t i = 0; i < lines.size(); i++)
-        //     std::cout << lines[i] << std::endl;
-        std::vector<Token> tokens = tokinizer(lines);
-        // for (size_t i = 0; i < tokens.size(); i++)
-        //     std::cout << tokenTypeToString(tokens[i].type) << " " << tokens[i].text << " " << tokens[i].line <<std::endl;
-       parse_validate(tokens, conf);
-
-        for (size_t i = 0; i < conf.servers.size(); ++i) {
-            for (size_t j = 0; j < conf.servers[i].listens.size(); ++j) {
-                std::cout << conf.servers[i].listens[j].host
-                        << ":" << conf.servers[i].listens[j].port
-                        << std::endl;
-            }
-        }
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-    }
-    
+    std::vector<std::string> lines = readFileLines(path);
+    std::vector<Token> tokens = tokinizer(lines);
+    parse_validate(tokens, conf);
     return conf;
 }
 

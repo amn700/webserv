@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include "webserv.hpp"
 #include <errno.h>
+#include <cstdlib>
 
 
 /*
@@ -26,40 +27,31 @@ struct sockaddr {
 
 */
 
+#ifdef WEBSERV_TEST
 int main() {
-    Sockets all;
-    
-    for (;;)
-        all.push_back() = Socket(AF_INET, SOCK_STREAM, 0, 8080, INADDR_ANY);;
-    // Socket sock = Socket(AF_INET, SOCK_STREAM, 0, 8080, INADDR_ANY);
-    all.push_back(Socket(sock));
-
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    Socket sock(AF_INET, SOCK_STREAM, 0, 8080, INADDR_ANY);
 
     int opt = 1;
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
-        perror("setsockopt");
+    if (setsockopt(sock.get_socket(), SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+        return perror("setsockopt"), 1;
 
-    
     struct sockaddr_in addr = sock.get_address();
     if (bind(sock.get_socket(), (sockaddr*)&addr, sizeof(addr)) < 0)
-        return perror("bind"),1;
-    
-    for (;;)
-    {
-        if (listen(sock.get_socket(), 10) < 0)
-            return perror("listen"), 1;
+        return perror("bind"), 1;
 
-        int client_fd = accept(sock.get_socket(), 0, 0);
-        if (client_fd < 0)
-            perror("accept");
-        //////////////////////////////////////////////////
-        char buf[4096];
-        ssize_t n = recv(client_fd, buf, sizeof(buf), 0);
-        //////////////////////////////////////////////////
-        write(1, buf, n);
-        close(client_fd);
-    }
-    close(sock.get_socket());
+    if (listen(sock.get_socket(), 10) < 0)
+        return perror("listen"), 1;
+
+    int client_fd = accept(sock.get_socket(), 0, 0);
+    if (client_fd < 0)
+        return perror("accept"), 1;
+
+    char buf[4096];
+    ssize_t n = recv(client_fd, buf, sizeof(buf), 0);
+    if (n > 0)
+        (void)write(1, buf, static_cast<size_t>(n));
+
+    close(client_fd);
     return 0;
 }
+#endif
