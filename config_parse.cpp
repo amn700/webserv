@@ -1,10 +1,15 @@
 #include "configtypes.hpp"
 #include "configloader.hpp"
+#include "webserv.hpp"
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <iostream>
 #include <cctype>
+
+Listen parseListenIPv4Port4(const std::string& s);
+
+
 
 std::string tokenTypeToString(TokenType t)
 {
@@ -18,20 +23,99 @@ std::string tokenTypeToString(TokenType t)
     }
 }
 
-// directive name, is_set, is_mandatory, is_multiple_allowed
-typedef std::map<std::string, std::tuple<bool, bool, bool>> ServerContent;
-
-struct DirectiveInfo {
-    ServerContent content;
-    DirectiveInfo() {
-        content["listen"] = std::make_tuple(false, true, true);
-        content["server_name"] = std::make_tuple(false, false, false);
-        content["root"] = std::make_tuple(false, false, false);
-        content["client_max_body_size"] = std::make_tuple(false, false, false);
-        content["error_page"] = std::make_tuple(false, false, true);
-        content["location"] = std::make_tuple(false, false, true);
+std::string tokenTypeToString_Litteral(TokenType t)
+{
+    switch (t) {
+        case TOK_WORD:   return "word";
+        case TOK_LBRACE: return "{";
+        case TOK_RBRACE: return "}";
+        case TOK_SEMI:   return ";";
+        case TOK_EOF:    return "EOF";
+        default:         return "TOK_UNKNOWN";
     }
-};
+}
+
+
+void expect(TokenList::const_iterator& it,
+            TokenList::const_iterator end,
+            TokenType type)
+{
+    if (it == end || it->type != type)
+        throw std::runtime_error("Parse error: expected " + tokenTypeToString_Litteral(type) + " at line " + std::to_string(it->line - 1));
+    it++;
+}
+
+std::string to_lower(const std::string& s)
+{
+    std::string out = s;
+    for (size_t i = 0; i < out.size(); ++i)
+        out[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(out[i])));
+    return out;
+}
+
+
+void expectWord(
+    TokenList::const_iterator& it,
+    TokenList::const_iterator end,
+    const std::string& word
+    )
+{
+    if (it == end || it->type != TOK_WORD || to_lower(it->text)!= word)
+        throw std::runtime_error("Parse error: expected '" + word + "'" + " at line " + std::to_string(it->line));
+    it++;
+}
+void parse_validate(const std::vector<Token>& tokens, Config& conf)
+{
+    std::vector<Token>::const_iterator it = tokens.begin();
+
+    while (it != tokens.end() && it->type != TOK_EOF)
+    {
+        ServerConfig server;
+        DirectiveInfo dir;
+
+        expectWord(it, tokens.end(), "server");
+        expect(it, tokens.end(), TOK_LBRACE);
+
+        while (it != tokens.end())
+        {
+            if (it == tokens.end() || it->type == TOK_EOF)
+                throw std::runtime_error(
+                    "Parse error: unexpected end of file (missing '}' to close server block), "
+                    "last seen at line " + std::to_string(lastLine));
+            if (it->type == TOK_RBRACE)
+                break;
+            if (it->type != TOK_WORD)
+                throw std::runtime_error("Parse error: expected a directive at line " + std::to_string(it->line));
+            
+            if (to_lower(it->text) == "listen")
+            {
+                expectWord(it, tokens.end(), "listen");
+
+                if (dir.content["listen"].seen && !dir.content["listen"].allowMultiple)
+                    throw std::runtime_error("Parse error: duplicate directive 'listen' at line " + std::to_string(it->line));
+                dir.content["listen"].seen = true;
+
+
+                if (it == tokens.end() || it->type != TOK_WORD)
+                    throw std::runtime_error("Parse error: listen expects ip:port at line " + std::to_string(it->line));
+
+                server.listens.push_back(parseListenIPv4Port4(it->text));
+
+
+                expect(it, tokens.end(), TOK_WORD);
+                expect(it, tokens.end(), TOK_SEMI);
+            }
+
+            else {
+                throw std::runtime_error("Parse error: unknown directive '" + it->text +
+                                         "' at line " + std::to_string(it->line));
+            }
+        }
+        expect(it, tokens.end(), TOK_RBRACE);
+
+        conf.servers.push_back(server);
+    }
+}
 
 
 static std::vector<std::string> readFileLines(const std::string& path)
@@ -91,47 +175,16 @@ std::vector<Token> tokinizer(std::vector<std::string> lines)
     return out;
 }
 
-
-void expect(TokenList::const_iterator& it,
-            TokenList::const_iterator end,
-            TokenType type)
-{
-    if (it == end || it->type != type)
-        throw std::runtime_error("Parse error: expected different token");
-    ++it;
-}
-
-std::string to_lower(const std::string& s)
-{
-    std::string out = s;
-    for (size_t i = 0; i < out.size(); ++i) {
-        out[i] = static_cast<char>(
-            std::tolower(static_cast<unsigned char>(out[i]))
-        );
-    }
-    return out;
-}
-
-
-void expectWord(
-    TokenList::const_iterator& it,
-    TokenList::const_iterator end,
-    const std::string& word
-    )
-{
-    if (it == end || it->type != TOK_WORD || to_lower(it->text)!= word)
-        throw std::runtime_error("Parse error: expected '" + word + "'");
-    ++it;
-}
-
 Config ConfigLoader:: loadFromFile(const std::string& path)
 {
     Config conf;
     try
     {
         std::vector<std::string> lines = readFileLines(path);
-        std::vector<Token> tokens = tokinizer(lines);
         // for (size_t i = 0; i < lines.size(); i++)
+        //     std::cout << lines[i] << std::endl;
+        std::vector<Token> tokens = tokinizer(lines);
+        // for (size_t i = 0; i < tokens.size(); i++)
         //     std::cout << tokenTypeToString(tokens[i].type) << " " << tokens[i].text << " " << tokens[i].line <<std::endl;
         parse_validate(tokens, conf);
     }
@@ -181,36 +234,4 @@ Config ConfigLoader:: loadFromFile(const std::string& path)
     return  ::: optional, only one allowed; default none
         ex: return 301 http://example.com/;
 */
-
-
-void parse_validate(std::vector<Token> tokens, Config& conf)
-{
-    std::vector<Token>::const_iterator it;
-    
-    for (it = tokens.begin(); it != tokens.end(); ++it)
-    {
-        ServerConfig server;
-        expectWord(it, tokens.end(), "server");
-        expect(it, tokens.end(), TOK_LBRACE);
-
-        for (; it != tokens.end(); ++it)
-        {
-            if (it->type == TOK_RBRACE)
-                break;
-
-            if (it->type != TOK_WORD)
-                throw std::runtime_error("Parse error: expected a directive");
-
-            std::string directive = to_lower(it->text);
-
-            if (directive == "server_name")
-            {
-            }
-            else
-                throw std::runtime_error("Parse error: unknown directive '" + directive + "'");
-        }
-
-        conf.servers.push_back(server);
-    }
-}
 

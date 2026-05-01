@@ -74,4 +74,30 @@ struct Config {
     std::vector<ServerConfig> servers;
 };
 
+// directive name, is_set, is_mandatory, is_multiple_allowed
+struct DirectiveProps {
+    bool seen;           // have we encountered it (for the current server block)
+    bool isMandatory;    // must exist?
+    bool allowMultiple;  // can appear more than once?
+
+    DirectiveProps() : seen(false), isMandatory(false), allowMultiple(false) {}
+    DirectiveProps(bool s, bool m, bool multi)
+        : seen(s), isMandatory(m), allowMultiple(multi) {}
+};
+
+typedef std::map<std::string, DirectiveProps> ServerContent;
+
+struct DirectiveInfo {
+    ServerContent content;
+
+    DirectiveInfo() {
+        content["listen"]               = DirectiveProps(false, true,  true);
+        content["server_name"]          = DirectiveProps(false, false, false);
+        content["root"]                 = DirectiveProps(false, false,  false); // maybe maybe
+        content["client_max_body_size"] = DirectiveProps(false, false, false);
+        content["error_page"]           = DirectiveProps(false, false, true);
+        content["location"]             = DirectiveProps(false, false, true);
+    }
+};
+
 #endif
