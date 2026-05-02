@@ -8,6 +8,7 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <cstring>
 class HttpRequest
 {
     public:
@@ -17,6 +18,7 @@ class HttpRequest
     std::map<std::string, std::string> headers;  // 4. Extra info (Host, User-Agent, etc.)
     std::string body;          // 5. Data being sent (for POST)
     std::map<std::string, std::string> query_params;
+    int ff;
     HttpRequest (const std::string& raw_request);
 };
 
