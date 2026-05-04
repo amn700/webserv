@@ -1,0 +1,6 @@
+looking for the path in evry location thet u heve
+lookin for the longest mach u can found in the paths
+if the maching was only one char then its valid if i found mor maching hen ill shoos the longest mach
+then ill take the path and add it to the root i found
+if no root founded in my locations then ill add the the path to the server root 
+then i can chekc if file existed i can open it or not. 

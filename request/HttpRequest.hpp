@@ -9,17 +9,58 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <cstring>
-class HttpRequest
-{
-    public:
-    std::string method;       // 1. What to do (GET, POST, etc.)
-    std::string path;          // 2. What resource (/index.html)
-    std::string version;       // 3. HTTP version (HTTP/1.1)
-    std::map<std::string, std::string> headers;  // 4. Extra info (Host, User-Agent, etc.)
-    std::string body;          // 5. Data being sent (for POST)
+#include "../configtypes.hpp"
+
+
+//not mine 
+typedef std::set<std::string> MethodSet;
+struct UploadConfig {
+    bool enabled;
+    std::string dir;
+    UploadConfig() : enabled(false) {}
+};
+
+struct LocationConfig {
+    std::string prefix;                 // "/upload/" "/cgi-bin/" etc.
+    MethodSet methods;                  // allowed methods; empty => server/default
+    Redirect redirect;                  // optional
+    std::string root;                   // optional override
+    bool autoindex;                     // default false
+    std::vector<std::string> index;     // ["index.html", ...]
+    UploadConfig upload;                // optional
+    CgiMap cgi;                         // optional
+
+    LocationConfig() : autoindex(false) {}
+};
+
+struct ServerConfig {
+    std::vector<Listen> listens;                 // interface:port pairs
+    std::string server_name;                     // optional
+    std::string root;                            // required
+    size_t client_max_body_size;                 // bytes; 0 => use default
+    std::map<int, std::string> error_pages;      // 404 -> "path"
+
+    std::vector<LocationConfig> locations;
+
+    ServerConfig() : client_max_body_size(0) {}
+};
+//
+
+
+
+class HttpRequest {
+public:
+    std::string method;
+    std::string path;
+    std::string version;
+    std::map<std::string, std::string> headers;
+    std::string body;
     std::map<std::string, std::string> query_params;
-    int ff;
-    HttpRequest (const std::string& raw_request);
+
+    int status; // set to 200, 404, 403, 405, 301...
+    std::string redirect_target; // empty unless redirect
+
+    HttpRequest(const std::string& raw_request, ServerConfig serv);
 };
 
 // class ResponseBuilder

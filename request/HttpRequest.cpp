@@ -120,40 +120,57 @@ std::map<std::string, std::string> pars_query(const std::string& str)
     return ret;
 }
 
-HttpRequest::HttpRequest(const std::string& raw_request)
+int validate_request(ServerConfig serv)
 {
-    std::cout<<"PARSING"<<std::endl;
+    if (!path_exists(this->path,serv))
+        return 404;
+    if (!has_permission(this->path,serv))
+        return 403;
+    // If open() succeeds, the file exists and you have the required permissions. You can then proceed to read it.
+    // If open() fails, check errno.
+    // If errno is EACCES or EPERM, you know you have a 403 Forbidden error .
+    // If errno is ENOENT, you know you have a 404 Not Found error.
+    if (!method_allowed(this->method,serv))
+        return 405;
+    return 200;
+}
+
+
+HttpRequest::HttpRequest(const std::string& raw_request,ServerConfig serv)
+{
+    // std::cout<<"PARSING"<<std::endl;
     if (raw_request.empty())
         throw std::invalid_argument("String cannot be empty in MyObject constructor");
     std::vector<std::string> lines;
     std::stringstream ss(raw_request);
     std::string line;
-    this->ff=5;
     while (std::getline(ss, line)) 
     {
         lines.push_back(line);
     }
 
     this->method = parse_method(lines[0]);
-        std::cout << this->method << std::endl;//
+        // std::cout << this->method << std::endl;//
 
     this->path = parse_path(lines[0]);
-        std::cout << this->path << std::endl;//
+        // std::cout << this->path << std::endl;//
 
     this->version = parse_version(lines[0]);
-        std::cout << this->version << std::endl;//
+        // std::cout << this->version << std::endl;//
 
     this->body = pars_body(lines);//
-    if(!this->body.empty())
-        std::cout <<"--"<< this->body<<"--" << std::endl;//
+    // if(!this->body.empty())
+        // std::cout <<"--"<< this->body<<"--" << std::endl;//
 
     this->headers = pars_heders(lines);
-    std::cout << "Key: "  << "=== Value: "  << std::endl;
-    for (std::map<std::string, std::string>::iterator it = this->headers.begin();it != this->headers.end(); ++it)
-    std::cout << it->first <<"    " << it->second << std::endl;
+    // std::cout << "Key: "  << "=== Value: "  << std::endl;
+    // for (std::map<std::string, std::string>::iterator it = this->headers.begin();it != this->headers.end(); ++it)
+    // std::cout << it->first <<"    " << it->second << std::endl;
 
     this->query_params = pars_query(lines[0]);
-    std::cout << "Key: "  << "=== Value: "  << std::endl;
-    for (std::map<std::string, std::string>::iterator it = this->query_params.begin();it != this->query_params.end(); ++it) 
-    std::cout << it->first <<"  " << it->second << std::endl;
+    this->status = validate_request(serv);
+    // std::cout << "Key: "  << "=== Value: "  << std::endl;
+    // for (std::map<std::string, std::string>::iterator it = this->query_params.begin();it != this->query_params.end(); ++it) 
+    // std::cout << it->first <<"  " << it->second << std::endl;
+    
 }
