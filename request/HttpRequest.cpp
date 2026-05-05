@@ -120,8 +120,10 @@ std::map<std::string, std::string> pars_query(const std::string& str)
     return ret;
 }
 
+
 int validate_request(ServerConfig serv)
 {
+    
     if (!path_exists(this->path,serv))
         return 404;
     if (!has_permission(this->path,serv))
@@ -132,6 +134,8 @@ int validate_request(ServerConfig serv)
     // If errno is ENOENT, you know you have a 404 Not Found error.
     if (!method_allowed(this->method,serv))
         return 405;
+    if (path_redirect(this->path,serv))
+        return path_redirect(this->path,serv);
     return 200;
 }
 
