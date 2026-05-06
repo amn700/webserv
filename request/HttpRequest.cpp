@@ -44,7 +44,7 @@ std::string parse_path(const std::string& str)
     size_t firstSpace = str.find(' ');
     size_t secondSpace = str.find(' ', firstSpace + 1);
     std::string secondWord = str.substr(firstSpace + 1, secondSpace - firstSpace - 1);
-    if(secondWord.find('?'))
+    if (secondWord.find('?') != std::string::npos)
     {
         size_t firstSepert = secondWord.find('?');
         std::string ret =secondWord.substr(0, firstSepert);
@@ -148,62 +148,79 @@ bool method_allowed(const std::string& method, const LocationConfig* loc)
     return loc->methods.count(method) != 0;
 }
 
-int check_path_get(const std::string& fs_path)
+void check_path_get(validat& requ,const std::string& fs_path)
 {
     struct stat st;
 
     if (stat(fs_path.c_str(), &st) != 0)
     {
         if (errno == ENOENT || errno == ENOTDIR)
-            return 404;
+        {
+            requ.code=404;
+            requ.path="";
+            return ;
+        }
         if (errno == EACCES || errno == EPERM)
-            return 403;//u cant open som of the directorys tht the fille is in to 
-        return 500;
+        {
+            requ.code=403;
+            requ.path="";
+            return ;//u cant open som of the directorys tht the fille is in to 
+        }
+        requ.code=500;
+        requ.path="";
+        return ;
     }
     // If it's a directory, handle separately (index/autoindex logic)
-    if (S_ISDIR(st.st_mode))//u write a directory insted of file 
-        return 403; // or special handling; don't just return 200
+    if (S_ISDIR(st.st_mode))//u write a directory insted of file
+    {
+        requ.code=403;
+        requ.path="";
+        return ; // or special handling; don't just return 200
+    }
+        
     if (access(fs_path.c_str(), R_OK) != 0) //permition to reed 
     {
         if (errno == EACCES || errno == EPERM)
-            return 403;//u cant open the file itself
-        return 500;
+        {
+            requ.code=403;
+            requ.path="";
+            return ;//u cant open the file itself
+        }
+        requ.code=500;
+        requ.path="";
+        return ;
     }
-    return 200;
+    requ.code=200;
+    requ.path=fs_path;
+    return ;
 }
 
-int HttpRequest::validate_request(const ServerConfig& serv)
+validat HttpRequest::validate_request(const ServerConfig& serv)
 {
     const LocationConfig* loc = best_match_location(this->path, serv);
-
-    // 1) redirect first
+    validat requ;
     if (loc && loc->redirect.enabled) 
     {
         this->redirect_target = loc->redirect.target;   // if you store it here
-        return loc->redirect.code;                      // 301/302...
+        requ.path = "";
+        requ.code=loc->redirect.code;
+        return requ;                      // 301/302...
     }
-
-    // 2) method check
     if (!method_allowed(this->method, loc))
-        return 405;
-
-    // 3) build filesystem path (root + URI)
+    {
+        requ.code=405;
+        requ.path="";
+        return requ;
+    }
     std::string root = serv.root;
     if (loc && !loc->root.empty())
         root = loc->root;
-
     std::string fs_path = root + this->path;
-
-    // // 4) file checks
-    // if (!path_exists(fs_path))
-    //     return 404;
-    // if (!has_permission(fs_path)) // R_OK for GET, etc.
-    //     return 403;
-
-    return check_path_get(fs_path);
+    check_path_get(requ,fs_path);
+    return requ ;
 }
 
-HttpRequest::HttpRequest(const std::string& raw_request,ServerConfig serv)
+HttpRequest::HttpRequest(const std::string& raw_request,const ServerConfig& serv)
 {
     // std::cout<<"PARSING"<<std::endl;
     if (raw_request.empty())
@@ -211,7 +228,8 @@ HttpRequest::HttpRequest(const std::string& raw_request,ServerConfig serv)
     std::vector<std::string> lines;
     std::stringstream ss(raw_request);
     std::string line;
-    
+    this->redirect_target="";
+    // validat requ;
     while (std::getline(ss, line)) 
     {
         lines.push_back(line);
@@ -236,7 +254,9 @@ HttpRequest::HttpRequest(const std::string& raw_request,ServerConfig serv)
     // std::cout << it->first <<"    " << it->second << std::endl;
 
     this->query_params = pars_query(lines[0]);
-    this->status = validate_request(serv);
+    this->status = validate_request(serv).code;
+    if(this->status == 200)
+        this->redirect_target= validate_request(serv).path;
     // std::cout << "Key: "  << "=== Value: "  << std::endl;
     // for (std::map<std::string, std::string>::iterator it = this->query_params.begin();it != this->query_params.end(); ++it) 
     // std::cout << it->first <<"  " << it->second << std::endl;

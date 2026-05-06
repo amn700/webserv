@@ -1,8 +1,6 @@
 #ifndef CONFIGTYPES_HPP
 #define CONFIGTYPES_HPP
 
-
-
 #include <string>
 #include <vector>
 #include <map>
@@ -60,20 +58,20 @@ struct Config {
 
 
 
-class HttpRequest {
-public:
-    std::string method;
-    std::string path;
-    std::string version;
-    std::map<std::string, std::string> headers;
-    std::string body;
-    std::map<std::string, std::string> query_params;
+// class HttpRequest {
+// public:
+//     std::string method;
+//     std::string path;
+//     std::string version;
+//     std::map<std::string, std::string> headers;
+//     std::string body;
+//     std::map<std::string, std::string> query_params;
 
-    int status; // set to 200, 404, 403, 405, 301...
-    std::string redirect_target; // empty unless redirect
+//     int status; // set to 200, 404, 403, 405, 301...
+//     std::string redirect_target; // empty unless redirect
 
-    HttpRequest(const std::string& raw_request, ServerConfig serv);
-    int validate_request(ServerConfig serv);
-};
+//     HttpRequest(const std::string& raw_request, ServerConfig serv);
+//     int validate_request(ServerConfig serv);
+// };
 
 #endif

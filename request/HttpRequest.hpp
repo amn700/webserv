@@ -13,45 +13,12 @@
 #include <sys/stat.h>  // stat, struct stat, S_ISDIR
 #include <unistd.h>    // access, R_OK
 #include <errno.h>
-
 #include "../configtypes.hpp"
 
-
-// //not mine 
-// typedef std::set<std::string> MethodSet;
-// struct UploadConfig {
-//     bool enabled;
-//     std::string dir;
-//     UploadConfig() : enabled(false) {}
-// };
-
-// struct LocationConfig {
-//     std::string prefix;                 // "/upload/" "/cgi-bin/" etc.
-//     MethodSet methods;                  // allowed methods; empty => server/default
-//     Redirect redirect;                  // optional
-//     std::string root;                   // optional override
-//     bool autoindex;                     // default false
-//     std::vector<std::string> index;     // ["index.html", ...]
-//     UploadConfig upload;                // optional
-//     CgiMap cgi;                         // optional
-
-//     LocationConfig() : autoindex(false) {}
-// };
-
-// struct ServerConfig {
-//     std::vector<Listen> listens;                 // interface:port pairs
-//     std::string server_name;                     // optional
-//     std::string root;                            // required
-//     size_t client_max_body_size;                 // bytes; 0 => use default
-//     std::map<int, std::string> error_pages;      // 404 -> "path"
-
-//     std::vector<LocationConfig> locations;
-
-//     ServerConfig() : client_max_body_size(0) {}
-// };
-// //
-
-
+struct validat {
+    std::string path; // "127.0.0.1" or "0.0.0.0" l ip dial server
+    int code;         // 1 .. 65535 ..... ex: 8080 port dial server
+};
 
 class HttpRequest {
 public:
@@ -65,61 +32,9 @@ public:
     int status; // set to 200, 404, 403, 405, 301...
     std::string redirect_target; // empty unless redirect
 
-    HttpRequest(const std::string& raw_request, ServerConfig serv);
-    int validate_request(ServerConfig serv);
+    HttpRequest(const std::string& raw_request,const ServerConfig& serv);
+    validat validate_request(const ServerConfig& serv);
 };
 
-// class ResponseBuilder
-// {
-// public:
-//     std::string build(const HttpRequest& request)
-//     {
-//         // Handle different methods
-//         if (request.method == "GET")
-//         {
-//             return handle_get(request);
-//         } 
-//         else if (request.method == "POST")
-//          {
-//             return handle_post(request);
-//         }
-//         else if (request.method == "HEAD")
-//         {
-//             return handle_head(request);
-//         }
-//         else 
-//         {
-//             return error_type();  // Method Not Allowed
-//         }
-//     }
-    
-// private:
-//     std::string handle_get(const HttpRequest& req) 
-//     {
-//         return response;
-//     }
-    
-//     std::string handle_post(const HttpRequest& req)
-//     {
-//         return response;
-//     }
-    
-//     std::string handle_head(const HttpRequest& req)
-//     {
-//         return response;
-//     }
-    
-//     std::string error_404()
-//     {
-//         return response;
-//     }
-    
-//     std::string error_405()
-//     {
-//         return response;
-//     }
-// };
 
-// ResponseBuilder response_builder;
-// std::string http_response = response_builder.build(request);
 #endif
