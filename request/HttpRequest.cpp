@@ -120,25 +120,88 @@ std::map<std::string, std::string> pars_query(const std::string& str)
     return ret;
 }
 
-
-int validate_request(ServerConfig serv)
+const LocationConfig* best_match_location(const std::string& path, const ServerConfig& serv)
 {
-    
-    if (!path_exists(this->path,serv))
-        return 404;
-    if (!has_permission(this->path,serv))
-        return 403;
-    // If open() succeeds, the file exists and you have the required permissions. You can then proceed to read it.
-    // If open() fails, check errno.
-    // If errno is EACCES or EPERM, you know you have a 403 Forbidden error .
-    // If errno is ENOENT, you know you have a 404 Not Found error.
-    if (!method_allowed(this->method,serv))
-        return 405;
-    if (path_redirect(this->path,serv))
-        return path_redirect(this->path,serv);
+    const LocationConfig* best = NULL;
+    size_t bestLen = 0;
+    for (size_t i = 0; i < serv.locations.size(); ++i)
+    {
+        const std::string& prefix = serv.locations[i].prefix;
+        if (path.rfind(prefix, 0) == 0)
+        {
+            if (prefix.size() > bestLen)
+            {
+                bestLen = prefix.size();
+                best = &serv.locations[i];
+            }
+        }
+    }
+    return best;
+}
+
+bool method_allowed(const std::string& method, const LocationConfig* loc)
+{
+    if (!loc)
+        return true; 
+    if (loc->methods.empty())
+        return true;
+    return loc->methods.count(method) != 0;
+}
+
+int check_path_get(const std::string& fs_path)
+{
+    struct stat st;
+
+    if (stat(fs_path.c_str(), &st) != 0)
+    {
+        if (errno == ENOENT || errno == ENOTDIR)
+            return 404;
+        if (errno == EACCES || errno == EPERM)
+            return 403;//u cant open som of the directorys tht the fille is in to 
+        return 500;
+    }
+    // If it's a directory, handle separately (index/autoindex logic)
+    if (S_ISDIR(st.st_mode))//u write a directory insted of file 
+        return 403; // or special handling; don't just return 200
+    if (access(fs_path.c_str(), R_OK) != 0) //permition to reed 
+    {
+        if (errno == EACCES || errno == EPERM)
+            return 403;//u cant open the file itself
+        return 500;
+    }
     return 200;
 }
 
+int HttpRequest::validate_request(const ServerConfig& serv)
+{
+    const LocationConfig* loc = best_match_location(this->path, serv);
+
+    // 1) redirect first
+    if (loc && loc->redirect.enabled) 
+    {
+        this->redirect_target = loc->redirect.target;   // if you store it here
+        return loc->redirect.code;                      // 301/302...
+    }
+
+    // 2) method check
+    if (!method_allowed(this->method, loc))
+        return 405;
+
+    // 3) build filesystem path (root + URI)
+    std::string root = serv.root;
+    if (loc && !loc->root.empty())
+        root = loc->root;
+
+    std::string fs_path = root + this->path;
+
+    // // 4) file checks
+    // if (!path_exists(fs_path))
+    //     return 404;
+    // if (!has_permission(fs_path)) // R_OK for GET, etc.
+    //     return 403;
+
+    return check_path_get(fs_path);
+}
 
 HttpRequest::HttpRequest(const std::string& raw_request,ServerConfig serv)
 {
@@ -148,6 +211,7 @@ HttpRequest::HttpRequest(const std::string& raw_request,ServerConfig serv)
     std::vector<std::string> lines;
     std::stringstream ss(raw_request);
     std::string line;
+    
     while (std::getline(ss, line)) 
     {
         lines.push_back(line);
@@ -176,5 +240,4 @@ HttpRequest::HttpRequest(const std::string& raw_request,ServerConfig serv)
     // std::cout << "Key: "  << "=== Value: "  << std::endl;
     // for (std::map<std::string, std::string>::iterator it = this->query_params.begin();it != this->query_params.end(); ++it) 
     // std::cout << it->first <<"  " << it->second << std::endl;
-    
 }

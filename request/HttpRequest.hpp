@@ -9,42 +9,47 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <cstring>
+#include <string>
+#include <sys/stat.h>  // stat, struct stat, S_ISDIR
+#include <unistd.h>    // access, R_OK
+#include <errno.h>
+
 #include "../configtypes.hpp"
 
 
-//not mine 
-typedef std::set<std::string> MethodSet;
-struct UploadConfig {
-    bool enabled;
-    std::string dir;
-    UploadConfig() : enabled(false) {}
-};
+// //not mine 
+// typedef std::set<std::string> MethodSet;
+// struct UploadConfig {
+//     bool enabled;
+//     std::string dir;
+//     UploadConfig() : enabled(false) {}
+// };
 
-struct LocationConfig {
-    std::string prefix;                 // "/upload/" "/cgi-bin/" etc.
-    MethodSet methods;                  // allowed methods; empty => server/default
-    Redirect redirect;                  // optional
-    std::string root;                   // optional override
-    bool autoindex;                     // default false
-    std::vector<std::string> index;     // ["index.html", ...]
-    UploadConfig upload;                // optional
-    CgiMap cgi;                         // optional
+// struct LocationConfig {
+//     std::string prefix;                 // "/upload/" "/cgi-bin/" etc.
+//     MethodSet methods;                  // allowed methods; empty => server/default
+//     Redirect redirect;                  // optional
+//     std::string root;                   // optional override
+//     bool autoindex;                     // default false
+//     std::vector<std::string> index;     // ["index.html", ...]
+//     UploadConfig upload;                // optional
+//     CgiMap cgi;                         // optional
 
-    LocationConfig() : autoindex(false) {}
-};
+//     LocationConfig() : autoindex(false) {}
+// };
 
-struct ServerConfig {
-    std::vector<Listen> listens;                 // interface:port pairs
-    std::string server_name;                     // optional
-    std::string root;                            // required
-    size_t client_max_body_size;                 // bytes; 0 => use default
-    std::map<int, std::string> error_pages;      // 404 -> "path"
+// struct ServerConfig {
+//     std::vector<Listen> listens;                 // interface:port pairs
+//     std::string server_name;                     // optional
+//     std::string root;                            // required
+//     size_t client_max_body_size;                 // bytes; 0 => use default
+//     std::map<int, std::string> error_pages;      // 404 -> "path"
 
-    std::vector<LocationConfig> locations;
+//     std::vector<LocationConfig> locations;
 
-    ServerConfig() : client_max_body_size(0) {}
-};
-//
+//     ServerConfig() : client_max_body_size(0) {}
+// };
+// //
 
 
 
@@ -61,6 +66,7 @@ public:
     std::string redirect_target; // empty unless redirect
 
     HttpRequest(const std::string& raw_request, ServerConfig serv);
+    int validate_request(ServerConfig serv);
 };
 
 // class ResponseBuilder
