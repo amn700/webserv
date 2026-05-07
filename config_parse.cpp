@@ -8,6 +8,7 @@
 #include <cctype>
 
 Listen parseListenIPv4Port4(const std::string& s);
+Listen parseListenHostPort(const std::string& s);
 
 static std::string intToString(int v)
 {
@@ -101,9 +102,9 @@ void parse_validate(const std::vector<Token>& tokens, Config& conf)
 
 
                 if (it == tokens.end() || it->type != TOK_WORD)
-                    throw std::runtime_error("Parse error: listen expects ip:port at line " + (it == tokens.end() ? std::string("EOF") : intToString(it->line)));
+                    throw std::runtime_error("Parse error: listen expects host:port at line " + (it == tokens.end() ? std::string("EOF") : intToString(it->line)));
 
-                server.listens.push_back(parseListenIPv4Port4(it->text));
+                server.listens.push_back(parseListenHostPort(it->text));
 
 
                 expect(it, tokens.end(), TOK_WORD);
