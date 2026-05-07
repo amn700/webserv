@@ -1,4 +1,6 @@
 #include "webserv.hpp"
+
+#include "HttpRequest.hpp"
 #include "configtypes.hpp"
 #include "configloader.hpp"
 #include <sys/socket.h>
@@ -28,6 +30,7 @@ static in_addr resolveIPv4(const std::string& host)
     ::freeaddrinfo(res);
     return out;
 }
+
 
 int main (int argc, char ** argv)
 {
