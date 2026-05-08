@@ -236,28 +236,32 @@ HttpRequest::HttpRequest(const std::string& raw_request,const ServerConfig& serv
     }
 
     this->method = parse_method(lines[0]);
-        // std::cout << this->method << std::endl;//
+        std::cout << this->method << std::endl;//
 
     this->path = parse_path(lines[0]);
-        // std::cout << this->path << std::endl;//
+        std::cout << this->path << std::endl;//
 
     this->version = parse_version(lines[0]);
-        // std::cout << this->version << std::endl;//
+        std::cout << this->version << std::endl;//
 
     this->body = pars_body(lines);//
-    // if(!this->body.empty())
-        // std::cout <<"--"<< this->body<<"--" << std::endl;//
+    if(!this->body.empty())
+        std::cout <<"--"<< this->body<<"--" << std::endl;//
 
     this->headers = pars_heders(lines);
-    // std::cout << "Key: "  << "=== Value: "  << std::endl;
-    // for (std::map<std::string, std::string>::iterator it = this->headers.begin();it != this->headers.end(); ++it)
-    // std::cout << it->first <<"    " << it->second << std::endl;
+    std::cout << "Key: "  << "=== Value: "  << std::endl;
+    for (std::map<std::string, std::string>::iterator it = this->headers.begin();it != this->headers.end(); ++it)
+    std::cout << it->first <<"    " << it->second << std::endl;
 
     this->query_params = pars_query(lines[0]);
     this->status = validate_request(serv).code;
     if(this->status == 200)
         this->redirect_target= validate_request(serv).path;
+
+    std::cout << "status : "  << this->status<< std::endl;
     // std::cout << "Key: "  << "=== Value: "  << std::endl;
-    // for (std::map<std::string, std::string>::iterator it = this->query_params.begin();it != this->query_params.end(); ++it) 
-    // std::cout << it->first <<"  " << it->second << std::endl;
+
+    std::cout << "Key: "  << "=== Value: "  << std::endl;
+    for (std::map<std::string, std::string>::iterator it = this->query_params.begin();it != this->query_params.end(); ++it) 
+    std::cout << it->first <<"  " << it->second << std::endl;
 }

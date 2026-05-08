@@ -4,10 +4,11 @@ CXX := c++
 CXXFLAGS := -std=c++98 -Wall -Wextra -Werror
 
 SRCS := \
-	main.cpp \
+	test.cpp \
 	config_parse.cpp \
 	listen_parser.cpp \
-	socket.cpp
+	socket.cpp \
+	request/HttpRequest.cpp	
 
 OBJS := $(SRCS:.cpp=.o)
 
