@@ -4,11 +4,18 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <vector>
 
 class Socket
 {
 public:
-    Socket(int domain, int service, int protocol , int port, u_long interface);
+    Socket(
+            int domain,
+            int service,
+            int protocol,
+            int port,
+            u_long interface
+        );
     ~Socket();
     int get_socket();
     struct sockaddr_in get_address();
@@ -19,6 +26,8 @@ private:
     int _socket;
     int connection;
 };
+
+typedef std::vector<Socket> Sockets;
 
 #endif
 

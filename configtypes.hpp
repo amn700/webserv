@@ -24,6 +24,24 @@ struct UploadConfig {
     UploadConfig() : enabled(false) {}
 };
 
+enum TokenType {
+    TOK_WORD,     // identifiers + values: listen, 127.0.0.1, /upload/, on, 404, etc.
+    TOK_LBRACE,   // {
+    TOK_RBRACE,   // }
+    TOK_SEMI,     // ;
+    TOK_EOF       // end of input (optional but very convenient for parser)
+};
+
+struct Token {
+    TokenType type;
+    std::string text; // only used for TOK_WORD (and maybe TOK_EOF = "")
+    int line;
+
+    Token() : type(TOK_EOF), text(""), line(1) {}
+    Token(TokenType t, const std::string& s, int ln) : type(t), text(s), line(ln) {}
+};
+typedef std::vector<Token> TokenList;
+
 typedef std::set<std::string> MethodSet;
 typedef std::map<std::string, std::string> CgiMap; // ".py" -> "/usr/bin/python3" ...
 
@@ -56,22 +74,30 @@ struct Config {
     std::vector<ServerConfig> servers;
 };
 
+// directive name, is_set, is_mandatory, is_multiple_allowed
+struct DirectiveProps {
+    bool seen;           // have we encountered it (for the current server block)
+    bool isMandatory;    // must exist?
+    bool allowMultiple;  // can appear more than once?
 
+    DirectiveProps() : seen(false), isMandatory(false), allowMultiple(false) {}
+    DirectiveProps(bool s, bool m, bool multi)
+        : seen(s), isMandatory(m), allowMultiple(multi) {}
+};
 
-// class HttpRequest {
-// public:
-//     std::string method;
-//     std::string path;
-//     std::string version;
-//     std::map<std::string, std::string> headers;
-//     std::string body;
-//     std::map<std::string, std::string> query_params;
+typedef std::map<std::string, DirectiveProps> ServerContent;
 
-//     int status; // set to 200, 404, 403, 405, 301...
-//     std::string redirect_target; // empty unless redirect
+struct DirectiveInfo {
+    ServerContent content;
 
-//     HttpRequest(const std::string& raw_request, ServerConfig serv);
-//     int validate_request(ServerConfig serv);
-// };
+    DirectiveInfo() {
+        content["listen"]               = DirectiveProps(false, true,  true);
+        content["server_name"]          = DirectiveProps(false, false, false);
+        content["root"]                 = DirectiveProps(false, false,  false); // maybe maybe
+        content["client_max_body_size"] = DirectiveProps(false, false, false);
+        content["error_page"]           = DirectiveProps(false, false, true);
+        content["location"]             = DirectiveProps(false, false, true);
+    }
+};
 
 #endif
