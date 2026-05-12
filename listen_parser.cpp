@@ -4,6 +4,13 @@
 #include <cstdlib>
 #include "configtypes.hpp"
 
+static std::string toLower(const std::string& s)
+{
+    std::string out = s;
+    for (size_t i = 0; i < out.size(); ++i)
+        out[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(out[i])));
+    return out;
+}
 static int parseIntRange(const std::string& s, int minV, int maxV)
 {
     if (s.empty())
@@ -26,53 +33,55 @@ static int parseIntRange(const std::string& s, int minV, int maxV)
     return static_cast<int>(v);
 }
 
-Listen parseListenHostPort(const std::string& s)
+static bool isValidIPv4(const std::string& ip)
 {
-    if (s.empty())
-        throw std::runtime_error("listen: empty value (expected host:port)");
+    int parts = 0;
+    size_t start = 0;
 
-    std::string host;
-    std::string portStr;
+    while (true) {
+        size_t dot = ip.find('.', start);
+        std::string part = (dot == std::string::npos)
+            ? ip.substr(start)
+            : ip.substr(start, dot - start);
 
-    // Support bracketed IPv6: [::1]:8080
-    if (s[0] == '[') {
-        size_t close = s.find(']');
-        if (close == std::string::npos)
-            throw std::runtime_error("listen: missing ']' (expected [addr]:port)");
-        if (close + 1 >= s.size() || s[close + 1] != ':')
-            throw std::runtime_error("listen: missing ':' after ']' (expected [addr]:port)");
+        if (part.empty()) return false;
 
-        host = s.substr(1, close - 1);
-        portStr = s.substr(close + 2);
-        if (host.empty())
-            throw std::runtime_error("listen: empty address inside '[]'");
-    } else {
-        size_t colon = s.find(':');
-        if (colon == std::string::npos)
-            throw std::runtime_error("listen: missing ':' (expected host:port)");
+        try {
+            (void)parseIntRange(part, 0, 255);
+        } catch (...) {
+            return false;
+        }
 
-        if (s.find(':', colon + 1) != std::string::npos)
-            throw std::runtime_error("listen: too many ':' characters (use [addr]:port for IPv6)");
-
-        host = s.substr(0, colon);
-        portStr = s.substr(colon + 1);
-
-        // Common shorthand: ":8080" or "*:8080" means bind all interfaces.
-        if (host.empty() || host == "*")
-            host = "0.0.0.0";
+        ++parts;
+        if (dot == std::string::npos) break;
+        start = dot + 1;
     }
+
+    return parts == 4;
+}
+
+Listen parseListenIPv4Port4(const std::string& s)
+{
+    size_t colon = s.find(':');
+    if (colon == std::string::npos)
+        throw std::runtime_error("listen: missing ':' (expected ip:port)");
+
+    if (s.find(':', colon + 1) != std::string::npos)
+        throw std::runtime_error("listen: too many ':' characters");
+
+    std::string ip = s.substr(0, colon);
+    std::string portStr = s.substr(colon + 1);
+
+    if (toLower(ip) == "localhost")
+        ip = "127.0.0.1";
+
+    if (!isValidIPv4(ip))
+        throw std::runtime_error("listen: invalid IPv4 address: " + ip);
 
     int port = parseIntRange(portStr, 0, 65535);
 
     Listen l;
-    l.host = host;
+    l.host = ip;
     l.port = port;
     return l;
-}
-
-// Backwards-compatible name kept for the rest of the codebase.
-// Despite the name, it now accepts either a numeric IPv4 string or a DNS hostname.
-Listen parseListenIPv4Port4(const std::string& s)
-{
-    return parseListenHostPort(s);
 }

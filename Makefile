@@ -1,31 +1,41 @@
-NAME := webserv
-
-CXX := c++
-CXXFLAGS := -std=c++98 -Wall -Wextra -Werror
+CXX := g++
+CXXFLAGS := -Wall -Wextra -Werror -std=c++98 -g
+LDFLAGS :=
 
 SRCS := \
-	test.cpp \
-	config_parse.cpp \
+	main.cpp \
+	ConfigLoader.cpp \
 	listen_parser.cpp \
-	socket.cpp \
-	request/HttpRequest.cpp	
+	WebServer.cpp \
+	Server.cpp \
+	Socket.cpp
+
+TEST_SRCS := test.cpp
 
 OBJS := $(SRCS:.cpp=.o)
+TEST_OBJS := $(TEST_SRCS:.cpp=.o)
+TARGET := webserv
+TEST_TARGET := test
 
-.PHONY: all clean fclean re
+.PHONY: all clean rebuild run test
 
-all: $(NAME)
+all: $(TARGET)
 
-$(NAME): $(OBJS)
-	$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME)
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+run: all
+	./$(TARGET)
+
+test: $(TEST_TARGET)
+
+$(TEST_TARGET): $(TEST_OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $(TEST_OBJS) $(LDFLAGS)
+
+rebuild: clean all
+
 clean:
-	rm -f $(OBJS)
-
-fclean: clean
-	rm -f $(NAME)
-
-re: fclean all
+	rm -f *.o $(OBJS) $(TEST_OBJS) $(TARGET) $(TEST_TARGET) a.out
