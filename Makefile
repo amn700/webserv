@@ -1,6 +1,5 @@
 CXX := g++
-CXXFLAGS := -Wall -Wextra -Werror -std=c++98 -g
-LDFLAGS :=
+CXXFLAGS := -Wall -Wextra -Werror -std=c++98
 
 SRCS := \
 	main.cpp \
@@ -10,33 +9,28 @@ SRCS := \
 	WebServer.cpp \
 	Socket.cpp
 
-TEST_SRCS := test.cpp
 
 OBJS := $(SRCS:.cpp=.o)
-TEST_OBJS := $(TEST_SRCS:.cpp=.o)
 TARGET := webserv
-TEST_TARGET := test
 
 
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-run: all
-	./$(TARGET)
-
-test: $(TEST_TARGET)
-
-$(TEST_TARGET): $(TEST_OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $(TEST_OBJS) $(LDFLAGS)
+run: all clean
+	./$(TARGET) configurations/webserv.conf
 
 re: clean all
 
 clean:
-	rm -f *.o $(OBJS) $(TEST_OBJS) $(TARGET) $(TEST_TARGET) a.out
+	rm -f *.o $(OBJS)
 
-.PHONY: all clean rebuild run test
+fclean: clean
+	rm -rf $(TARGET)
+
+.PHONY: all fclean clean re run test
