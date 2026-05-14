@@ -10,16 +10,17 @@
 #include <set>
 #include <string>
 #include <vector>
-#include "Server.hpp"
+
 
 class WebServer {
-    public:
+public:
     WebServer(const Config& conf);
+    ~WebServer();
     
     // Blocking call: runs the poll() event loop until the process is terminated.
     void run();
     
-    private:
+private:
     struct ClientState {
         std::string in;
         std::string out;
@@ -31,17 +32,16 @@ class WebServer {
         ClientState(int lfd, size_t sidx)
         : listenerFd(lfd), serverIndex(sidx), responded(false) {}
     };
-    
-    std::vector<Server> _servers;
+
     std::vector< ::pollfd > _pollfds;
 
     std::set<int> _listenerFds;
-    std::map<int, size_t> _listenerToServerIndex;
+    std::map<int, std::vector<size_t> > _listenerToServerIndices;
     std::map<int, ClientState> _clients;
 
     static void setNonBlocking(int fd);
 
-    void addListener(int fd, size_t serverIndex);
+    void addListener(int fd);
     void addClient(int clientFd, int listenerFd, size_t serverIndex);
 
     void closeAndRemove(size_t pollIndex);
@@ -50,7 +50,6 @@ class WebServer {
     bool handleClientEvents(size_t clientPollIndex);
 
     static bool hasHeaderTerminator(const std::string& s);
-    static std::string buildHelloResponse();
 };
 
 #endif

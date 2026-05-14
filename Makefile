@@ -7,7 +7,6 @@ SRCS := \
 	ConfigLoader.cpp \
 	listen_parser.cpp \
 	WebServer.cpp \
-	Server.cpp \
 	Socket.cpp
 
 TEST_SRCS := test.cpp
@@ -17,7 +16,6 @@ TEST_OBJS := $(TEST_SRCS:.cpp=.o)
 TARGET := webserv
 TEST_TARGET := test
 
-.PHONY: all clean rebuild run test
 
 all: $(TARGET)
 
@@ -35,7 +33,9 @@ test: $(TEST_TARGET)
 $(TEST_TARGET): $(TEST_OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(TEST_OBJS) $(LDFLAGS)
 
-rebuild: clean all
+re: clean all
 
 clean:
 	rm -f *.o $(OBJS) $(TEST_OBJS) $(TARGET) $(TEST_TARGET) a.out
+
+.PHONY: all clean rebuild run test

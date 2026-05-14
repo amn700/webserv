@@ -1,4 +1,5 @@
 #include "ConfigLoader.hpp"
+#include "configtypes.hpp"
 
 #include <cstdlib>
 #include <fstream>
@@ -7,7 +8,7 @@
 #include <stdexcept>
 #include <cctype>
 
-Listen parseListenIPv4Port4(const std::string& s);
+ServerConfig::Listen parseListenIPv4Port4(const std::string& s);
 
 class ParseError : public std::runtime_error {
 public:
@@ -88,7 +89,7 @@ static void parseLocationBlock(
             (it == end ? -1 : it->line)
         );
 
-    LocationConfig loc;
+    ServerConfig::LocationConfig loc;
     LocationInfo locDir;
 
     loc.prefix = it->text;

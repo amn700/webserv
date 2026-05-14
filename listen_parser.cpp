@@ -60,7 +60,7 @@ static bool isValidIPv4(const std::string& ip)
     return parts == 4;
 }
 
-Listen parseListenIPv4Port4(const std::string& s)
+ServerConfig::Listen parseListenIPv4Port4(const std::string& s)
 {
     size_t colon = s.find(':');
     if (colon == std::string::npos)
@@ -80,7 +80,7 @@ Listen parseListenIPv4Port4(const std::string& s)
 
     int port = parseIntRange(portStr, 0, 65535);
 
-    Listen l;
+    ServerConfig::Listen l;
     l.host = ip;
     l.port = port;
     return l;

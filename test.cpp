@@ -1,12 +1,3 @@
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <string.h>
-#include <unistd.h>
-#include <stdio.h>
-#include "Socket.hpp"
-#include <errno.h>
-#include <cstdlib>
-
 
 /*
 
@@ -27,7 +18,18 @@ struct sockaddr {
 
 */
 
+// #define WEBSERV_TEST
 #ifdef WEBSERV_TEST
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdio.h>
+#include "Socket.hpp"
+#include <errno.h>
+#include <cstdlib>
+
 int main() {
     Socket sock(AF_INET, SOCK_STREAM, 0, 8080, INADDR_ANY);
 

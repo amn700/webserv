@@ -1,6 +1,9 @@
-git #include "WebServer.hpp"
+#include "WebServer.hpp"
 
 #include <sys/socket.h>
+
+#include <netdb.h>
+#include <netinet/in.h>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -13,6 +16,74 @@ git #include "WebServer.hpp"
 static std::string syscallError(const std::string& what)
 {
     return what + ": " + ::strerror(errno);
+}
+
+static std::string listenKey(const std::string& host, int port)
+{
+    char tmp[32];
+    ::snprintf(tmp, sizeof(tmp), "%d", port);
+    return host + ":" + tmp;
+}
+
+static int openListenFd(const std::string& host, int port)
+{
+    if (port < 0 || port > 65535)
+        throw std::runtime_error("Invalid listen port");
+
+    struct addrinfo hints;
+    struct addrinfo* result = 0;
+
+    ::memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+#ifdef AI_NUMERICHOST
+    hints.ai_flags = AI_NUMERICHOST;
+#endif
+
+    const int rc = ::getaddrinfo(host.c_str(), 0, &hints, &result);
+    if (rc != 0 || result == 0 || result->ai_addr == 0) {
+        if (result)
+            ::freeaddrinfo(result);
+        throw std::runtime_error("Invalid listen host: " + host);
+    }
+
+    if (result->ai_family != AF_INET || result->ai_addrlen < sizeof(sockaddr_in)) {
+        ::freeaddrinfo(result);
+        throw std::runtime_error("Invalid listen host: " + host);
+    }
+
+    const in_addr addr = ((struct sockaddr_in*)result->ai_addr)->sin_addr;
+    ::freeaddrinfo(result);
+
+    const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0)
+        throw std::runtime_error(syscallError("socket"));
+
+    int opt = 1;
+    if (::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        (void)::close(fd);
+        throw std::runtime_error(syscallError("setsockopt(SO_REUSEADDR)"));
+    }
+
+    sockaddr_in sa;
+    ::memset(&sa, 0, sizeof(sa));
+    sa.sin_family = AF_INET;
+    sa.sin_port = htons(static_cast<unsigned short>(port));
+    sa.sin_addr = addr;
+
+    if (::bind(fd, (sockaddr*)&sa, sizeof(sa)) < 0) {
+        const std::string msg = syscallError("bind(" + listenKey(host, port) + ")");
+        (void)::close(fd);
+        throw std::runtime_error(msg);
+    }
+
+    if (::listen(fd, 128) < 0) {
+        const std::string msg = syscallError("listen(" + listenKey(host, port) + ")");
+        (void)::close(fd);
+        throw std::runtime_error(msg);
+    }
+
+    return fd;
 }
 
 void WebServer::setNonBlocking(int fd)
@@ -30,28 +101,44 @@ void WebServer::setNonBlocking(int fd)
 
 WebServer::WebServer(const Config& conf)
 {
-    _servers.reserve(conf.servers.size());
-    for (size_t i = 0; i < conf.servers.size(); ++i)
-        _servers.push_back(Server(conf.servers[i]));
+    //Dedupe listeners by host:port and map
+    // each listener fd to one or more server{} blocks (vhosts).
+    std::map<std::string, int> keyToFd;
 
-    for (size_t i = 0; i < _servers.size(); ++i)
-        _servers[i].setup();
+    for (size_t sidx = 0; sidx < conf.servers.size(); ++sidx) {
+        const ServerConfig& sc = conf.servers[sidx];
 
-    // Register all listener sockets in poll().
-    for (size_t i = 0; i < _servers.size(); ++i) {
-        const Sockets& socks = _servers[i].sockets();
-        for (size_t j = 0; j < socks.size(); ++j) {
-            const int fd = socks[j].get_socket();
-            addListener(fd, i);
-            setNonBlocking(fd);
+        for (size_t lidx = 0; lidx < sc.listens.size(); ++lidx) {
+            const ServerConfig::Listen& l = sc.listens[lidx];
+            const std::string key = listenKey(l.host, l.port);
+
+            int fd;
+            std::map<std::string, int>::iterator it = keyToFd.find(key);
+            if (it == keyToFd.end()) {
+                fd = openListenFd(l.host, l.port);
+                addListener(fd);
+                setNonBlocking(fd);
+                keyToFd[key] = fd;
+            } else {
+                fd = it->second;
+            }
+
+            _listenerToServerIndices[fd].push_back(sidx);
         }
     }
 }
 
-void WebServer::addListener(int fd, size_t serverIndex)
+WebServer::~WebServer()
+{
+    for (std::map<int, ClientState>::iterator it = _clients.begin(); it != _clients.end(); ++it)
+        (void)::close(it->first);
+    for (std::set<int>::iterator it = _listenerFds.begin(); it != _listenerFds.end(); ++it)
+        (void)::close(*it);
+}
+
+void WebServer::addListener(int fd)
 {
     _listenerFds.insert(fd);
-    _listenerToServerIndex[fd] = serverIndex;
 
     ::pollfd p;
     p.fd = fd;
@@ -89,7 +176,13 @@ void WebServer::closeAndRemove(size_t pollIndex)
 void WebServer::handleListenerReadable(int listenerPollIndex)
 {
     const int listenerFd = _pollfds[listenerPollIndex].fd;
-    const size_t serverIndex = _listenerToServerIndex[listenerFd];
+
+    std::map<int, std::vector<size_t> >::const_iterator it = _listenerToServerIndices.find(listenerFd);
+    if (it == _listenerToServerIndices.end() || it->second.empty())
+        throw std::runtime_error("Internal error: listener has no associated server");
+
+    // Default routing for new connections: first configured server{} for this listener.
+    const size_t serverIndex = it->second[0];
 
     while (true) {
         const int clientFd = ::accept(listenerFd, 0, 0);
@@ -109,29 +202,6 @@ void WebServer::handleListenerReadable(int listenerPollIndex)
 bool WebServer::hasHeaderTerminator(const std::string& s)
 {
     return s.find("\r\n\r\n") != std::string::npos || s.find("\n\n") != std::string::npos;
-}
-
-std::string WebServer::buildHelloResponse()
-{
-    const std::string body = "Hello from webserv\n";
-
-    std::string resp;
-    resp += "HTTP/1.1 200 OK\r\n";
-    resp += "Content-Type: text/plain\r\n";
-    resp += "Content-Length: ";
-
-    // int -> string (C++98)
-    {
-        char tmp[32];
-        ::snprintf(tmp, sizeof(tmp), "%lu", static_cast<unsigned long>(body.size()));
-        resp += tmp;
-    }
-
-    resp += "\r\n";
-    resp += "Connection: close\r\n";
-    resp += "\r\n";
-    resp += body;
-    return resp;
 }
 
 bool WebServer::handleClientEvents(size_t clientPollIndex)
@@ -167,11 +237,6 @@ bool WebServer::handleClientEvents(size_t clientPollIndex)
 
             closeAndRemove(clientPollIndex);
             return true;
-        }
-
-        if (!st.responded && hasHeaderTerminator(st.in)) {
-            st.out = buildHelloResponse();
-            st.responded = true;
         }
     }
 
