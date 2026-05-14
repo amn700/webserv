@@ -6,6 +6,7 @@ SRCS := \
 	main.cpp \
 	ConfigLoader.cpp \
 	listen_parser.cpp \
+	request/HttpRequest.cpp \
 	WebServer.cpp \
 	Socket.cpp
 

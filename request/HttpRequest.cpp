@@ -1,5 +1,9 @@
 #include "HttpRequest.hpp"
 
+#include <stdexcept>
+
+// typedef ServerConfig::LocationConfig LocationConfig;
+
 std::string parse_method(const std::string& str)
 {
     size_t spacePos = str.find(' ');
@@ -20,7 +24,7 @@ std::string parse_version(const std::string& str)
 std::string pars_body(std::vector<std::string>lines)
 {
     unsigned int i;
-    for(i=1;lines.size();i++)
+    for (i = 1; i < lines.size(); i++)
     {
         if(lines[i].find_first_not_of(" \t\n\r\f\v") == std::string::npos)
             break;
@@ -120,9 +124,9 @@ std::map<std::string, std::string> pars_query(const std::string& str)
     return ret;
 }
 
-const LocationConfig* best_match_location(const std::string& path, const ServerConfig& serv)
+const ServerConfig::LocationConfig* best_match_location(const std::string& path, const ServerConfig& serv)
 {
-    const LocationConfig* best = NULL;
+    const ServerConfig::LocationConfig* best = NULL;
     size_t bestLen = 0;
     for (size_t i = 0; i < serv.locations.size(); ++i)
     {
@@ -139,7 +143,7 @@ const LocationConfig* best_match_location(const std::string& path, const ServerC
     return best;
 }
 
-bool method_allowed(const std::string& method, const LocationConfig* loc)
+bool method_allowed(const std::string& method, const ServerConfig::LocationConfig* loc)
 {
     if (!loc)
         return true; 
@@ -197,7 +201,7 @@ void check_path_get(validat& requ,const std::string& fs_path)
 
 validat HttpRequest::validate_request(const ServerConfig& serv)
 {
-    const LocationConfig* loc = best_match_location(this->path, serv);
+    const ServerConfig::LocationConfig* loc = best_match_location(this->path, serv);
     validat requ;
     if (loc && loc->redirect.enabled) 
     {
@@ -234,6 +238,9 @@ HttpRequest::HttpRequest(const std::string& raw_request,const ServerConfig& serv
     {
         lines.push_back(line);
     }
+
+    if (lines.empty())
+        throw std::invalid_argument("Invalid HTTP request: empty first line");
 
     this->method = parse_method(lines[0]);
         std::cout << this->method << std::endl;//

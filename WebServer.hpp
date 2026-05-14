@@ -21,6 +21,8 @@ public:
     void run();
     
 private:
+    const Config& _conf;
+
     struct ClientState {
         std::string in;
         std::string out;

@@ -1,5 +1,7 @@
 #include "WebServer.hpp"
 
+#include "request/HttpRequest.hpp"
+
 #include <sys/socket.h>
 
 #include <netdb.h>
@@ -11,7 +13,35 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <iostream>
+#include <sstream>
 #include <stdexcept>
+
+static std::string peerToString(int fd)
+{
+    sockaddr_storage ss;
+    socklen_t slen = sizeof(ss);
+    ::memset(&ss, 0, sizeof(ss));
+
+    if (::getpeername(fd, (sockaddr*)&ss, &slen) != 0)
+        return "<unknown>";
+
+    char host[NI_MAXHOST];
+    char serv[NI_MAXSERV];
+    ::memset(host, 0, sizeof(host));
+    ::memset(serv, 0, sizeof(serv));
+
+    const int rc = ::getnameinfo((sockaddr*)&ss, slen,
+                                 host, sizeof(host),
+                                 serv, sizeof(serv),
+                                 NI_NUMERICHOST | NI_NUMERICSERV);
+    if (rc != 0)
+        return "<unknown>";
+
+    std::ostringstream out;
+    out << host << ":" << serv;
+    return out.str();
+}
 
 static std::string syscallError(const std::string& what)
 {
@@ -100,6 +130,7 @@ void WebServer::setNonBlocking(int fd)
 }
 
 WebServer::WebServer(const Config& conf)
+: _conf(conf)
 {
     //Dedupe listeners by host:port and map
     // each listener fd to one or more server{} blocks (vhosts).
@@ -235,6 +266,30 @@ bool WebServer::handleClientEvents(size_t clientPollIndex)
             if (errno == EAGAIN || errno == EWOULDBLOCK)
                 break;
 
+            closeAndRemove(clientPollIndex);
+            return true;
+        }
+
+        if (!st.responded && hasHeaderTerminator(st.in)) {
+            std::cerr << "[webserv] recv request from " << peerToString(fd)
+                      << " (listenerFd=" << st.listenerFd
+                      << ", serverIndex=" << st.serverIndex << ")\n";
+            std::cerr << st.in << std::endl;
+
+            try {
+                const size_t idx = (st.serverIndex < _conf.servers.size()) ? st.serverIndex : 0;
+                HttpRequest req(st.in, _conf.servers[idx]);
+                std::cerr << "[webserv] parsed: method=" << req.method
+                          << " path=" << req.path
+                          << " status=" << req.status;
+                if (!req.redirect_target.empty())
+                    std::cerr << " redirect_target=" << req.redirect_target;
+                std::cerr << std::endl;
+            } catch (const std::exception& e) {
+                std::cerr << "[webserv] parse error: " << e.what() << std::endl;
+            }
+
+            st.responded = true;
             closeAndRemove(clientPollIndex);
             return true;
         }
