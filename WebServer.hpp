@@ -2,6 +2,7 @@
 #define WEBSERVER_HPP
 
 #include "configtypes.hpp"
+#include "Socket.hpp"
 
 #include <poll.h>
 
@@ -36,7 +37,7 @@ private:
     };
 
     std::vector< ::pollfd > _pollfds;
-
+    Sockets _listeners;
     std::set<int> _listenerFds;
     std::map<int, std::vector<size_t> > _listenerToServerIndices;
     std::map<int, ClientState> _clients;

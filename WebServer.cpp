@@ -1,5 +1,7 @@
 #include "WebServer.hpp"
 
+#include "Socket.hpp"
+
 #include "request/HttpRequest.hpp"
 
 #include <sys/socket.h>
@@ -55,67 +57,6 @@ static std::string listenKey(const std::string& host, int port)
     return host + ":" + tmp;
 }
 
-static int openListenFd(const std::string& host, int port)
-{
-    if (port < 0 || port > 65535)
-        throw std::runtime_error("Invalid listen port");
-
-    struct addrinfo hints;
-    struct addrinfo* result = 0;
-
-    ::memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-#ifdef AI_NUMERICHOST
-    hints.ai_flags = AI_NUMERICHOST;
-#endif
-
-    const int rc = ::getaddrinfo(host.c_str(), 0, &hints, &result);
-    if (rc != 0 || result == 0 || result->ai_addr == 0) {
-        if (result)
-            ::freeaddrinfo(result);
-        throw std::runtime_error("Invalid listen host: " + host);
-    }
-
-    if (result->ai_family != AF_INET || result->ai_addrlen < sizeof(sockaddr_in)) {
-        ::freeaddrinfo(result);
-        throw std::runtime_error("Invalid listen host: " + host);
-    }
-
-    const in_addr addr = ((struct sockaddr_in*)result->ai_addr)->sin_addr;
-    ::freeaddrinfo(result);
-
-    const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0)
-        throw std::runtime_error(syscallError("socket"));
-
-    int opt = 1;
-    if (::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-        (void)::close(fd);
-        throw std::runtime_error(syscallError("setsockopt(SO_REUSEADDR)"));
-    }
-
-    sockaddr_in sa;
-    ::memset(&sa, 0, sizeof(sa));
-    sa.sin_family = AF_INET;
-    sa.sin_port = htons(static_cast<unsigned short>(port));
-    sa.sin_addr = addr;
-
-    if (::bind(fd, (sockaddr*)&sa, sizeof(sa)) < 0) {
-        const std::string msg = syscallError("bind(" + listenKey(host, port) + ")");
-        (void)::close(fd);
-        throw std::runtime_error(msg);
-    }
-
-    if (::listen(fd, 128) < 0) {
-        const std::string msg = syscallError("listen(" + listenKey(host, port) + ")");
-        (void)::close(fd);
-        throw std::runtime_error(msg);
-    }
-
-    return fd;
-}
-
 void WebServer::setNonBlocking(int fd)
 {
     int flags = ::fcntl(fd, F_GETFL, 0);
@@ -144,9 +85,12 @@ WebServer::WebServer(const Config& conf)
             const std::string key = listenKey(l.host, l.port);
 
             int fd;
+            // check if the key is already present in the map
             std::map<std::string, int>::iterator it = keyToFd.find(key);
             if (it == keyToFd.end()) {
-                fd = openListenFd(l.host, l.port);
+                Socket* s = Socket::createListener(l.host, l.port, 128);
+                fd = s->get_socket();
+                _listeners.push_back(s);
                 addListener(fd);
                 setNonBlocking(fd);
                 keyToFd[key] = fd;
@@ -163,8 +107,12 @@ WebServer::~WebServer()
 {
     for (std::map<int, ClientState>::iterator it = _clients.begin(); it != _clients.end(); ++it)
         (void)::close(it->first);
-    for (std::set<int>::iterator it = _listenerFds.begin(); it != _listenerFds.end(); ++it)
-        (void)::close(*it);
+    // Socket objects own listener fds — delete them so they close their fds.
+    for (Sockets::iterator it = _listeners.begin(); it != _listeners.end(); ++it) {
+        delete *it;
+    }
+    _listeners.clear();
+    _listenerFds.clear();
 }
 
 void WebServer::addListener(int fd)
