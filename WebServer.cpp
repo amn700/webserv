@@ -9,20 +9,21 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <sstream>
 #include <unistd.h>
 
 #include <stdexcept>
 
 static std::string syscallError(const std::string& what)
 {
-    return what + ": " + ::strerror(errno);
+    return what + ": " + strerror(errno);
 }
 
 static std::string listenKey(const std::string& host, int port)
 {
-    char tmp[32];
-    ::snprintf(tmp, sizeof(tmp), "%d", port);
-    return host + ":" + tmp;
+    std::stringstream ss;
+    ss << host << ":" << port;
+    return ss.str();
 }
 
 static int openListenFd(const std::string& host, int port)
@@ -33,53 +34,53 @@ static int openListenFd(const std::string& host, int port)
     struct addrinfo hints;
     struct addrinfo* result = 0;
 
-    ::memset(&hints, 0, sizeof(hints));
+    memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 #ifdef AI_NUMERICHOST
     hints.ai_flags = AI_NUMERICHOST;
 #endif
 
-    const int rc = ::getaddrinfo(host.c_str(), 0, &hints, &result);
+    const int rc = getaddrinfo(host.c_str(), 0, &hints, &result);
     if (rc != 0 || result == 0 || result->ai_addr == 0) {
         if (result)
-            ::freeaddrinfo(result);
+            freeaddrinfo(result);
         throw std::runtime_error("Invalid listen host: " + host);
     }
 
     if (result->ai_family != AF_INET || result->ai_addrlen < sizeof(sockaddr_in)) {
-        ::freeaddrinfo(result);
+        freeaddrinfo(result);
         throw std::runtime_error("Invalid listen host: " + host);
     }
 
     const in_addr addr = ((struct sockaddr_in*)result->ai_addr)->sin_addr;
-    ::freeaddrinfo(result);
+    freeaddrinfo(result);
 
-    const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
+    const int fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0)
         throw std::runtime_error(syscallError("socket"));
 
     int opt = 1;
-    if (::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-        (void)::close(fd);
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        (void)close(fd);
         throw std::runtime_error(syscallError("setsockopt(SO_REUSEADDR)"));
     }
 
     sockaddr_in sa;
-    ::memset(&sa, 0, sizeof(sa));
+    memset(&sa, 0, sizeof(sa));
     sa.sin_family = AF_INET;
     sa.sin_port = htons(static_cast<unsigned short>(port));
     sa.sin_addr = addr;
 
-    if (::bind(fd, (sockaddr*)&sa, sizeof(sa)) < 0) {
+    if (bind(fd, (sockaddr*)&sa, sizeof(sa)) < 0) {
         const std::string msg = syscallError("bind(" + listenKey(host, port) + ")");
-        (void)::close(fd);
+        (void)close(fd);
         throw std::runtime_error(msg);
     }
 
     if (::listen(fd, 128) < 0) {
         const std::string msg = syscallError("listen(" + listenKey(host, port) + ")");
-        (void)::close(fd);
+        (void)close(fd);
         throw std::runtime_error(msg);
     }
 
@@ -88,14 +89,14 @@ static int openListenFd(const std::string& host, int port)
 
 void WebServer::setNonBlocking(int fd)
 {
-    int flags = ::fcntl(fd, F_GETFL, 0);
+    int flags = fcntl(fd, F_GETFL, 0);
     if (flags < 0)
         throw std::runtime_error(syscallError("fcntl(F_GETFL)"));
 
     if ((flags & O_NONBLOCK) != 0)
         return;
 
-    if (::fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
         throw std::runtime_error(syscallError("fcntl(F_SETFL)"));
 }
 
@@ -131,9 +132,9 @@ WebServer::WebServer(const Config& conf)
 WebServer::~WebServer()
 {
     for (std::map<int, ClientState>::iterator it = _clients.begin(); it != _clients.end(); ++it)
-        (void)::close(it->first);
+        (void)close(it->first);
     for (std::set<int>::iterator it = _listenerFds.begin(); it != _listenerFds.end(); ++it)
-        (void)::close(*it);
+        (void)close(*it);
 }
 
 void WebServer::addListener(int fd)
