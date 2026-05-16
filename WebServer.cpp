@@ -14,35 +14,60 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 
-static std::string peerToString(int fd)
+// static std::string peerToString(int fd)
+// {
+//     sockaddr_storage ss;
+//     socklen_t slen = sizeof(ss);
+//     ::memset(&ss, 0, sizeof(ss));
+
+//     if (::getpeername(fd, (sockaddr*)&ss, &slen) != 0)
+//         return "<unknown>";
+
+//     char host[NI_MAXHOST];
+//     char serv[NI_MAXSERV];
+//     ::memset(host, 0, sizeof(host));
+//     ::memset(serv, 0, sizeof(serv));
+
+//     const int rc = ::getnameinfo((sockaddr*)&ss, slen,
+//                                  host, sizeof(host),
+//                                  serv, sizeof(serv),
+//                                  NI_NUMERICHOST | NI_NUMERICSERV);
+//     if (rc != 0)
+//         return "<unknown>";
+
+//     std::ostringstream out;
+//     out << host << ":" << serv;
+//     return out.str();
+// }
+
+
+static std::string uintToStr(unsigned int n)
 {
-    sockaddr_storage ss;
-    socklen_t slen = sizeof(ss);
-    ::memset(&ss, 0, sizeof(ss));
+    if (n == 0)
+        return "0";
+    char buf[16];
+    int i = 15;
+    buf[i] = '\0';
+    while (n > 0) {
+        buf[--i] = '0' + (n % 10);
+        n /= 10;
+    }
+    return std::string(buf + i);
+}
 
-    if (::getpeername(fd, (sockaddr*)&ss, &slen) != 0)
-        return "<unknown>";
-
-    char host[NI_MAXHOST];
-    char serv[NI_MAXSERV];
-    ::memset(host, 0, sizeof(host));
-    ::memset(serv, 0, sizeof(serv));
-
-    const int rc = ::getnameinfo((sockaddr*)&ss, slen,
-                                 host, sizeof(host),
-                                 serv, sizeof(serv),
-                                 NI_NUMERICHOST | NI_NUMERICSERV);
-    if (rc != 0)
-        return "<unknown>";
-
-    std::ostringstream out;
-    out << host << ":" << serv;
-    return out.str();
+static std::string peerToString(const sockaddr_in& addr)
+{
+    const unsigned char* ip =
+        reinterpret_cast<const unsigned char*>(&addr.sin_addr.s_addr);
+    return uintToStr(ip[0]) + "." +
+           uintToStr(ip[1]) + "." +
+           uintToStr(ip[2]) + "." +
+           uintToStr(ip[3]) + ":" +
+           uintToStr(ntohs(addr.sin_port));
 }
 
 static std::string syscallError(const std::string& what)
@@ -52,9 +77,9 @@ static std::string syscallError(const std::string& what)
 
 static std::string listenKey(const std::string& host, int port)
 {
-    char tmp[32];
-    ::snprintf(tmp, sizeof(tmp), "%d", port);
-    return host + ":" + tmp;
+    std::ostringstream ss;
+    ss << host << ":" << port;
+    return ss.str();
 }
 
 void WebServer::setNonBlocking(int fd)
@@ -70,34 +95,35 @@ void WebServer::setNonBlocking(int fd)
         throw std::runtime_error(syscallError("fcntl(F_SETFL)"));
 }
 
+
 WebServer::WebServer(const Config& conf)
-: _conf(conf)
+    : _conf(conf)
 {
-    //Dedupe listeners by host:port and map
-    // each listener fd to one or more server{} blocks (vhosts).
     std::map<std::string, int> keyToFd;
 
-    for (size_t sidx = 0; sidx < conf.servers.size(); ++sidx) {
+    for (size_t sidx = 0; sidx < conf.servers.size(); ++sidx)
+    {
         const ServerConfig& sc = conf.servers[sidx];
 
-        for (size_t lidx = 0; lidx < sc.listens.size(); ++lidx) {
+        for (size_t lidx = 0; lidx < sc.listens.size(); ++lidx)
+        {
             const ServerConfig::Listen& l = sc.listens[lidx];
-            const std::string key = listenKey(l.host, l.port);
 
-            int fd;
-            // check if the key is already present in the map
+            const std::string key = listenKey(l.host, l.port);
+            
+            //did u find the key in the map meaning is this ip:port already listened on by another server block? or is it a new listener?
             std::map<std::string, int>::iterator it = keyToFd.find(key);
-            if (it == keyToFd.end()) {
-                Socket* s = Socket::createListener(l.host, l.port, 128);
-                fd = s->get_socket();
-                _listeners.push_back(s);
-                addListener(fd);
-                setNonBlocking(fd);
-                keyToFd[key] = fd;
-            } else {
-                fd = it->second;
+            if (it != keyToFd.end()) {
+                _listenerToServerIndices[it->second].push_back(sidx);
+                continue;
             }
 
+            Socket* s = new Socket(l.host, l.port);
+            const int fd = s->get_fd();
+
+            _listeners.push_back(s);
+            setNonBlocking(fd);
+            keyToFd[key] = fd;
             _listenerToServerIndices[fd].push_back(sidx);
         }
     }
@@ -111,20 +137,20 @@ WebServer::~WebServer()
     for (Sockets::iterator it = _listeners.begin(); it != _listeners.end(); ++it) {
         delete *it;
     }
+
     _listeners.clear();
-    _listenerFds.clear();
 }
 
-void WebServer::addListener(int fd)
-{
-    _listenerFds.insert(fd);
+// void WebServer::addListener(int fd)
+// {
+//     _listenerFds.insert(fd);
 
-    ::pollfd p;
-    p.fd = fd;
-    p.events = POLLIN;
-    p.revents = 0;
-    _pollfds.push_back(p);
-}
+//     ::pollfd p;
+//     p.fd = fd;
+//     p.events = POLLIN;
+//     p.revents = 0;
+//     _pollfds.push_back(p);
+// }
 
 void WebServer::addClient(int clientFd, int listenerFd, size_t serverIndex)
 {
@@ -141,7 +167,7 @@ void WebServer::closeAndRemove(size_t pollIndex)
 {
     const int fd = _pollfds[pollIndex].fd;
 
-    if (_listenerFds.count(fd) == 0) {
+    if (!isListenerFd(fd)) {
         (void)::close(fd);
         _clients.erase(fd);
     }
@@ -218,8 +244,10 @@ bool WebServer::handleClientEvents(size_t clientPollIndex)
             return true;
         }
 
-        if (!st.responded && hasHeaderTerminator(st.in)) {
-            std::cerr << "[webserv] recv request from " << peerToString(fd)
+        if (!st.responded && hasHeaderTerminator(st.in))
+        {
+            std::cerr << "[webserv] recv request from "
+                      << peerToString(_listeners[st.listenerFd]->get_address())
                       << " (listenerFd=" << st.listenerFd
                       << ", serverIndex=" << st.serverIndex << ")\n";
             std::cerr << st.in << std::endl;
@@ -284,7 +312,7 @@ void WebServer::run()
             const int fd = _pollfds[i].fd;
             _pollfds[i].revents = 0;
 
-            if (_listenerFds.count(fd) != 0) {
+            if (isListenerFd(fd)) {
                 _pollfds[i].events = POLLIN;
                 continue;
             }
@@ -313,13 +341,13 @@ void WebServer::run()
             }
 
             if ((re & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
-                if (_listenerFds.count(fd) != 0)
+                if (isListenerFd(fd))
                     throw std::runtime_error("Listener socket failed");
                 closeAndRemove(i);
                 continue;
             }
 
-            if (_listenerFds.count(fd) != 0) {
+            if (isListenerFd(fd)) {
                 if ((re & POLLIN) != 0)
                     handleListenerReadable(static_cast<int>(i));
                 ++i;
@@ -333,3 +361,12 @@ void WebServer::run()
         }
     }
 }
+
+bool WebServer::isListenerFd(int fd) const
+{
+    for (size_t i = 0; i < _listeners.size(); ++i)
+        if (_listeners[i]->get_fd() == fd)
+            return true;
+    return false;
+}
+

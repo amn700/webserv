@@ -8,7 +8,6 @@
 
 #include <cstddef>
 #include <map>
-#include <set>
 #include <string>
 #include <vector>
 
@@ -38,13 +37,11 @@ private:
 
     std::vector< ::pollfd > _pollfds;
     Sockets _listeners;
-    std::set<int> _listenerFds;
     std::map<int, std::vector<size_t> > _listenerToServerIndices;
     std::map<int, ClientState> _clients;
 
     static void setNonBlocking(int fd);
-
-    void addListener(int fd);
+    bool isListenerFd(int fd) const;
     void addClient(int clientFd, int listenerFd, size_t serverIndex);
 
     void closeAndRemove(size_t pollIndex);
