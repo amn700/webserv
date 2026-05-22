@@ -42,6 +42,7 @@ private:
 
     static void setNonBlocking(int fd);
     bool isListenerFd(int fd) const;
+    void addListener(int listenerFd);
     void addClient(int clientFd, int listenerFd, size_t serverIndex);
 
     void closeAndRemove(size_t pollIndex);

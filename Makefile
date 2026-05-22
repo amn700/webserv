@@ -7,7 +7,8 @@ SRCS := \
 	listen_parser.cpp \
 	request/HttpRequest.cpp \
 	WebServer.cpp \
-	Socket.cpp
+	Socket.cpp \
+	location_parsing.cpp \
 
 
 OBJS := $(SRCS:.cpp=.o)
@@ -22,7 +23,7 @@ $(TARGET): $(OBJS)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-run: all clean
+run: re
 	./$(TARGET) configurations/webserv.conf
 
 re: clean all
