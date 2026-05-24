@@ -6,7 +6,7 @@
 /*   By: naessgui <naessgui@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/05/15 20:46:44 by naessgui          #+#    #+#             */
-/*   Updated: 2026/05/23 22:47:20 by naessgui         ###   ########.fr       */
+/*   Updated: 2026/05/24 20:45:27 by naessgui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -104,7 +104,6 @@ Response ResponseHandler::handleReqErrors()
     else 
     {
         res.setHeader("Content-Type", "text/html");
-        res.setBody("<h1>Error</h1>");
     }
     return res;
 }
@@ -132,29 +131,75 @@ std::string getMimeType(const std::string& path)
     return ("application/octet-stream");
 }
 
+
 Response ResponseHandler::handleGET(const std::string& path)
 {
     Response res;
-
-    std::string content = readFile(path);
-
-    if (content.empty())
+    struct stat st;
+   
+    if (stat(path.c_str(), &st) != 0)
     {
         res.setStatus(404, "Not Found");
         res.setBody("<h1>404 Not Found</h1>");
-
+        res.setHeader("Content-Type", "text/html");
+        return res;
     }
-    else
-    {
-        res.setStatus(200, "OK");
-        res.setBody(content);
+    // if (S_ISDIR(st.st_mode)) check if directory
+    std::string content = readFile(path);
 
-    }
-
+    res.setStatus(200, "OK");
+    res.setBody(content);
     res.setHeader("Content-Type", getMimeType(path));
 
     return res;
 }
+
+
+
+Response ResponseHandler::handleDELETE(const std::string& path)
+{
+    Response res;
+    struct stat st;
+
+    if (stat(path.c_str(), &st) != 0)
+    {
+        res.setStatus(404, "Not Found");
+        res.setBody("<h1>404 Not Found</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
+
+    if (S_ISDIR(st.st_mode))
+    {
+        res.setStatus(403, "Forbidden");
+        res.setBody("<h1>403 Forbidden (Directory)</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
+
+    if (access(path.c_str(), W_OK) != 0)
+    {
+        res.setStatus(403, "Forbidden");
+        res.setBody("<h1>403 Forbidden (No permission)</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
+
+    if (std::remove(path.c_str()) != 0)
+    {
+        res.setStatus(500, "Internal Server Error");
+        res.setBody("<h1>500 Could not delete file</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
+
+    res.setStatus(200, "OK");
+    res.setBody("<h1>File Deleted Successfully</h1>");
+    res.setHeader("Content-Type", "text/html");
+
+    return res;
+}
+
 Response ResponseHandler::handle()
 {
     if (req.status != 200)
@@ -162,7 +207,9 @@ Response ResponseHandler::handle()
 
     if (req.method == "GET")
         return handleGET(req.redirect_target);
-
+    
+    else if (req.method == "DELETE")
+        return handleDELETE(req.redirect_target);
     Response res;
 
     res.setStatus(405, "Method Not Allowed");

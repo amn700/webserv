@@ -6,7 +6,7 @@
 /*   By: naessgui <naessgui@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/05/14 13:02:04 by naessgui          #+#    #+#             */
-/*   Updated: 2026/05/23 21:47:22 by naessgui         ###   ########.fr       */
+/*   Updated: 2026/05/24 13:07:14 by naessgui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -42,7 +42,7 @@ std::string Response::buildResponse()
 
     headers["Content-Length"] = std::to_string(body.size());
 
-    response += "HTTP/1.0 ";
+    response += "HTTP/1.1 ";
     response += std::to_string(statusCode);
     response += " ";
     response += statusMessage;
