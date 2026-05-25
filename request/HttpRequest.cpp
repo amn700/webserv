@@ -1,40 +1,52 @@
 #include "HttpRequest.hpp"
 
-#include <stdexcept>
 
-// typedef ServerConfig::LocationConfig LocationConfig;
+bool valid_request_line(const std::string& line) 
+{
+    size_t firstSpace = line.find(' ');
+    if (firstSpace == std::string::npos)
+        return false;
+    size_t secondSpace = line.find(' ', firstSpace + 1);
+    if (secondSpace == std::string::npos)
+        return false;
+    if (line.find(' ', secondSpace + 1) != std::string::npos)
+        return false;
+    std::string method = line.substr(0, firstSpace);
+    // Note: method validation is done in parse_method, but this can also catch "OPTIONS ..." as invalid
+    if (!(method == "GET" || method == "POST" || method == "DELETE"))
+        return false;
+    std::string version = line.substr(secondSpace + 1);
+    if (version.substr(0,5) != "HTTP/")
+        return false;
+    return true;
+}
 
 std::string parse_method(const std::string& str)
 {
     size_t spacePos = str.find(' ');
     std::string firstWord = str.substr(0, spacePos);
-    if(firstWord == "GET" || firstWord == "POST" || firstWord == "DELETE")
+    if (firstWord == "GET" || firstWord == "POST" || firstWord == "DELETE")
         return firstWord;
-    else
-        throw std::invalid_argument("ther is no method");
+    throw std::logic_error("501");  // throw a logic_error to distinguish from 400
 }
 
-std::string parse_version(const std::string& str)
-{
+std::string parse_version(const std::string& str) {
     size_t lastSpace = str.find_last_of(' ');
     std::string lastWord = str.substr(lastSpace + 1);
     return lastWord;
 }
 
-std::string pars_body(std::vector<std::string>lines)
-{
+std::string pars_body(const std::vector<std::string>& lines) {
     unsigned int i;
-    for (i = 1; i < lines.size(); i++)
-    {
-        if(lines[i].find_first_not_of(" \t\n\r\f\v") == std::string::npos)
+    for (i = 1; i < lines.size(); i++) {
+        if (lines[i].find_first_not_of(" \t\n\r\f\v") == std::string::npos)
             break;
     }
-    i=i+1;
-    if (i==lines.size())
+    i += 1;
+    if (i == lines.size())
         return "";
     std::string ret;
-    while (i < lines.size())
-    {
+    while (i < lines.size()) {
         ret += lines[i];
         if (i != lines.size() - 1)
             ret += "\n";
@@ -43,22 +55,19 @@ std::string pars_body(std::vector<std::string>lines)
     return ret;
 }
 
-std::string parse_path(const std::string& str)
-{
+std::string parse_path(const std::string& str) {
     size_t firstSpace = str.find(' ');
     size_t secondSpace = str.find(' ', firstSpace + 1);
     std::string secondWord = str.substr(firstSpace + 1, secondSpace - firstSpace - 1);
-    if (secondWord.find('?') != std::string::npos)
-    {
+    if (secondWord.find('?') != std::string::npos) {
         size_t firstSepert = secondWord.find('?');
-        std::string ret =secondWord.substr(0, firstSepert);
-        return ret;
-    }
-    else
+        return secondWord.substr(0, firstSepert);
+    } else {
         return secondWord;
+    }
 }
-std::string trim_str(const std::string& str)
-{
+
+std::string trim_str(const std::string& str) {
     size_t start = str.find_first_not_of(" \t");
     if (start == std::string::npos)
         return "";
@@ -66,56 +75,50 @@ std::string trim_str(const std::string& str)
     return str.substr(start, end - start + 1);
 }
 
-std::map<std::string, std::string> pars_heders(std::vector<std::string> lines)
-{
+std::map<std::string, std::string> pars_heders(const std::vector<std::string>& lines) {
     std::map<std::string, std::string> ret;
-    for (unsigned int i = 1; i < lines.size(); i++)
-    {
-        if(lines[i].find_first_not_of(" \t\n\r\f\v") == std::string::npos)
+    for (unsigned int i = 1; i < lines.size(); i++) {
+        if (lines[i].find_first_not_of(" \t\n\r\f\v") == std::string::npos)
             break;
         size_t colon_pos = lines[i].find(':');
-        std::string key = lines[i].substr(0, colon_pos);
-        std::string value = lines[i].substr(colon_pos + 1);
-        value = trim_str(value);
+        if (colon_pos == std::string::npos || colon_pos == 0)
+            throw std::invalid_argument("Malformed header line");
+        std::string key = trim_str(lines[i].substr(0, colon_pos));
+        std::string value = trim_str(lines[i].substr(colon_pos + 1));
+        if (key.empty())
+            throw std::invalid_argument("Empty header key");
         ret.insert(std::make_pair(key, value));
     }
     return ret;
 }
 
-std::vector<std::string> split(const std::string& str, char delimiter)
-{
+std::vector<std::string> split(const std::string& str, char delimiter) {
     std::vector<std::string> result;
     std::stringstream ss(str);
     std::string token;
-    
     while (std::getline(ss, token, delimiter))
         result.push_back(token);
-    
     return result;
 }
 
-std::map<std::string, std::string> pars_query(const std::string& str)
-{
+std::map<std::string, std::string> pars_query(const std::string& str) {
     std::map<std::string, std::string> ret;
-    size_t lastSpace = str.find_last_of('?');
-    if(lastSpace  == std::string::npos)
+    size_t qmark = str.find('?');
+    if(qmark == std::string::npos)
         return ret;
-    std::string lastWord = str.substr(lastSpace + 1);
-    size_t spacePos = lastWord.find(' ');
-    std::string theword = lastWord.substr(0, spacePos);
+    size_t spacePos = str.find(' ', qmark);
+    std::string theword = (spacePos == std::string::npos)
+        ? str.substr(qmark + 1)
+        : str.substr(qmark + 1, spacePos - qmark - 1);
     std::vector<std::string> result = split(theword , '&');
-    for(unsigned int i = 0; i < result.size();i++)
-    {
+    for(unsigned int i = 0; i < result.size();i++) {
         size_t colon_pos = result[i].find('=');
         std::string key;
         std::string value;
-        if(colon_pos == std::string::npos)
-        {
+        if(colon_pos == std::string::npos) {
             key = result[i];
             value = "";
-        }
-        else
-        {
+        } else {
             key = result[i].substr(0, colon_pos);
             value = result[i].substr(colon_pos + 1);
         }
@@ -124,17 +127,13 @@ std::map<std::string, std::string> pars_query(const std::string& str)
     return ret;
 }
 
-const ServerConfig::LocationConfig* best_match_location(const std::string& path, const ServerConfig& serv)
-{
+const ServerConfig::LocationConfig* best_match_location(const std::string& path, const ServerConfig& serv) {
     const ServerConfig::LocationConfig* best = NULL;
     size_t bestLen = 0;
-    for (size_t i = 0; i < serv.locations.size(); ++i)
-    {
+    for (size_t i = 0; i < serv.locations.size(); ++i) {
         const std::string& prefix = serv.locations[i].prefix;
-        if (path.rfind(prefix, 0) == 0)
-        {
-            if (prefix.size() > bestLen)
-            {
+        if (path.rfind(prefix, 0) == 0) {
+            if (prefix.size() > bestLen) {
                 bestLen = prefix.size();
                 best = &serv.locations[i];
             }
@@ -143,132 +142,160 @@ const ServerConfig::LocationConfig* best_match_location(const std::string& path,
     return best;
 }
 
-bool method_allowed(const std::string& method, const ServerConfig::LocationConfig* loc)
-{
-    if (!loc)
-        return true; 
-    if (loc->methods.empty())
-        return true;
-    return loc->methods.count(method) != 0;
+std::string toLower(const std::string& str) {
+    std::string result = str;
+    for (size_t i = 0; i < result.size(); ++i)
+        result[i] = std::tolower(result[i]);
+    return result;
 }
 
-void check_path_get(validat& requ,const std::string& fs_path)
-{
-    struct stat st;
+bool method_allowed(const std::string& method, const ServerConfig::LocationConfig* loc) {
+    if (!loc) return true;
+    if (loc->methods.empty()) return true;
+    return loc->methods.count(toLower(method)) != 0;
+}
 
-    if (stat(fs_path.c_str(), &st) != 0)
-    {
-        if (errno == ENOENT || errno == ENOTDIR)
-        {
+void check_path_get(validat& requ, const std::string& fs_path, const ServerConfig::LocationConfig* loc) {
+    struct stat st;
+    if (stat(fs_path.c_str(), &st) != 0) {
+        if (errno == ENOENT || errno == ENOTDIR) {
             requ.code=404;
             requ.path="";
-            return ;
+            return;
         }
-        if (errno == EACCES || errno == EPERM)
-        {
+        if (errno == EACCES || errno == EPERM) {
             requ.code=403;
             requ.path="";
-            return ;//u cant open som of the directorys tht the fille is in to 
+            return;
         }
         requ.code=500;
         requ.path="";
-        return ;
+        return;
     }
-    // If it's a directory, handle separately (index/autoindex logic)
-    if (S_ISDIR(st.st_mode))//u write a directory insted of file
-    {
+    if (S_ISDIR(st.st_mode)) {
+        if(loc->autoindex) {
+            for(size_t i = 0; i < loc->index.size(); i++)
+                std::cout << "hihi "<<loc->index[i] << std::endl;
+        }
         requ.code=403;
         requ.path="";
-        return ; // or special handling; don't just return 200
+        return;
     }
-        
-    if (access(fs_path.c_str(), R_OK) != 0) //permition to reed 
-    {
-        if (errno == EACCES || errno == EPERM)
-        {
+    if (access(fs_path.c_str(), R_OK) != 0) {
+        if (errno == EACCES || errno == EPERM) {
             requ.code=403;
             requ.path="";
-            return ;//u cant open the file itself
+            return;
         }
         requ.code=500;
         requ.path="";
-        return ;
+        return;
     }
     requ.code=200;
     requ.path=fs_path;
-    return ;
+    return;
 }
 
-validat HttpRequest::validate_request(const ServerConfig& serv)
-{
+validat HttpRequest::validate_request(const ServerConfig& serv) {
     const ServerConfig::LocationConfig* loc = best_match_location(this->path, serv);
     validat requ;
-    if (loc && loc->redirect.enabled) 
-    {
-        this->redirect_target = loc->redirect.target;   // if you store it here
+    if (loc && loc->redirect.enabled) {
+        this->redirect_target = loc->redirect.target;
         requ.path = "";
-        requ.code=loc->redirect.code;
-        return requ;                      // 301/302...
+        requ.code = loc->redirect.code;
+        return requ;
     }
-    if (!method_allowed(this->method, loc))
-    {
-        requ.code=405;
-        requ.path="";
+    if (!method_allowed(this->method, loc)) {
+        requ.code = 405;
+        requ.path = "";
         return requ;
     }
     std::string root = serv.root;
     if (loc && !loc->root.empty())
         root = loc->root;
     std::string fs_path = root + this->path;
-    check_path_get(requ,fs_path);
-    return requ ;
+    check_path_get(requ, fs_path, loc);
+    return requ;
 }
 
-HttpRequest::HttpRequest(const std::string& raw_request,const ServerConfig& serv)
+// --- The fixed, robust HttpRequest constructor. All error codes are correct. ---
+
+HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& serv)
 {
-    // std::cout<<"PARSING"<<std::endl;
-    if (raw_request.empty())
-        throw std::invalid_argument("String cannot be empty in MyObject constructor");
-    std::vector<std::string> lines;
-    std::stringstream ss(raw_request);
-    std::string line;
-    this->redirect_target="";
-    // validat requ;
-    while (std::getline(ss, line)) 
-    {
-        lines.push_back(line);
+    const size_t MAX_BODY = 1024 * 1024 * 5; // 5 MiB max body size (change if you want)
+    const size_t MAX_PATH = 2048; // 2048 bytes max URI/path size
+
+    try {
+        if (raw_request.empty())
+            throw std::invalid_argument("Request is empty");
+
+        std::vector<std::string> lines;
+        std::stringstream ss(raw_request);
+        std::string line;
+        this->redirect_target = "";
+        while (std::getline(ss, line)) 
+            lines.push_back(line);
+
+        if (lines.empty())
+            throw std::invalid_argument("Request is not valid: no lines present");
+
+        if (!valid_request_line(lines[0]))
+            throw std::invalid_argument("Malformed request line");
+
+        this->method = parse_method(lines[0]);
+        this->path = parse_path(lines[0]);
+        this->version = parse_version(lines[0]);
+
+        // [COMPLETE] 414 URI Too Long
+        if (this->path.size() > MAX_PATH) {
+            this->status = 414;
+            this->redirect_target = "";
+            return;
+        }
+
+        this->headers = pars_heders(lines);
+
+        // [COMPLETE] 400 Bad Request if Host header missing for HTTP/1.1+
+        if ((this->version == "HTTP/1.1" || this->version == "HTTP/2.0") &&
+            this->headers.find("Host") == this->headers.end()) {
+            this->status = 400; // Bad Request
+            this->redirect_target = "";
+            return;
+        }
+
+        // [COMPLETE] 411 Length Required for POST/PUT with missing Content-Length
+        if ((this->method == "POST" || this->method == "PUT") &&
+            this->headers.find("Content-Length") == this->headers.end()) {
+            this->status = 411;
+            this->redirect_target = "";
+            return;
+        }
+
+        this->body = pars_body(lines);
+
+        // [COMPLETE] 413 Payload Too Large
+        if (this->body.size() > MAX_BODY) {
+            this->status = 413;
+            this->redirect_target = "";
+            return;
+        }
+
+        this->query_params = pars_query(lines[0]);
+        this->status = validate_request(serv).code;
+        if (this->status == 200)
+            this->redirect_target = validate_request(serv).path;
+    } 
+    catch (const std::logic_error& e) 
+    { // in constructor catch list
+        if (std::string(e.what()) == "501")
+            this->status = 501;
+        else
+            this->status = 400;
+        this->redirect_target = "";
     }
-
-    if (lines.empty())
-        throw std::invalid_argument("Invalid HTTP request: empty first line");
-
-    this->method = parse_method(lines[0]);
-        std::cout << this->method << std::endl;//
-
-    this->path = parse_path(lines[0]);
-        std::cout << this->path << std::endl;//
-
-    this->version = parse_version(lines[0]);
-        std::cout << this->version << std::endl;//
-
-    this->body = pars_body(lines);//
-    if(!this->body.empty())
-        std::cout <<"--"<< this->body<<"--" << std::endl;//
-
-    this->headers = pars_heders(lines);
-    std::cout << "Key: "  << "=== Value: "  << std::endl;
-    for (std::map<std::string, std::string>::iterator it = this->headers.begin();it != this->headers.end(); ++it)
-    std::cout << it->first <<"    " << it->second << std::endl;
-
-    this->query_params = pars_query(lines[0]);
-    this->status = validate_request(serv).code;
-    if(this->status == 200)
-        this->redirect_target= validate_request(serv).path;
-
-    std::cout << "status : "  << this->status<< std::endl;
-    // std::cout << "Key: "  << "=== Value: "  << std::endl;
-
-    std::cout << "Key: "  << "=== Value: "  << std::endl;
-    for (std::map<std::string, std::string>::iterator it = this->query_params.begin();it != this->query_params.end(); ++it) 
-    std::cout << it->first <<"  " << it->second << std::endl;
+    catch (const std::exception& e) 
+    {
+        this->status = 400;
+        this->redirect_target = "";
+    }
 }
