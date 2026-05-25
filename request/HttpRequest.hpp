@@ -34,6 +34,19 @@ public:
 
     HttpRequest(const std::string& raw_request,const ServerConfig& serv);
     validat validate_request(const ServerConfig& serv);
+
+    friend std::ostream& operator<<(std::ostream& os, const HttpRequest& req) {
+        os << "Method: " << req.method << "\n";
+        os << "Path: " << req.path << "\n";
+        os << "Version: " << req.version << "\n";
+        os << "Headers:\n";
+        for (std::map<std::string, std::string>::const_iterator it = req.headers.begin(); it != req.headers.end(); ++it) {
+            os << "  " << it->first << ": " << it->second << "\n";
+        }
+        os << "Status: " << req.status << "\n";
+        os << "Body:\n" << req.body << "\n";
+        return os;
+    }
 };
 
 
