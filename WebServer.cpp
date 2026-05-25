@@ -351,31 +351,31 @@ void WebServer::run()
             _pollfds[i].events = ev;
         }
 
-        const int rc = ::poll(&_pollfds[0], _pollfds.size(), -1);
+        const int rc = poll(&_pollfds[0], _pollfds.size(), -1);
         if (rc < 0) {
             if (errno == EINTR)
                 continue;
             throw std::runtime_error(syscallError("poll"));
         }
 
-        for (size_t i = 0; i < _pollfds.size(); ) {
-            const int fd = _pollfds[i].fd;
-            const short re = _pollfds[i].revents;
-
-            if (re == 0) {
+        for (size_t i = 0; i < _pollfds.size(); )
+        {
+            if (_pollfds[i].revents == 0) {
                 ++i;
                 continue;
             }
 
-            if ((re & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
-                if (isListenerFd(fd))
+            if ((_pollfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0)
+            {
+                if (isListenerFd(_pollfds[i].fd))
                     throw std::runtime_error("Listener socket failed");
                 closeAndRemove(i);
                 continue;
             }
 
-            if (isListenerFd(fd)) {
-                if ((re & POLLIN) != 0)
+            if (isListenerFd(_pollfds[i].fd))
+            {
+                if ((_pollfds[i].revents & POLLIN) != 0)
                     handleListenerReadable(static_cast<int>(i));
                 ++i;
                 continue;
