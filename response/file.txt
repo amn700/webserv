@@ -1,0 +1,69 @@
+=> GET
+    Receives a file path.
+    Checks if the file exists.
+    Reads the file content.
+    Sets status 200 OK.
+    Sets the correct Content-Type.
+    Sends the file back to the client.
+
+
+=> POST
+    Receives data in req.body.
+    Creates/opens upload.txt.
+    Writes the body into the file.
+    Returns 201 Created.
+
+
+=> DELETE
+    Checks if the target exists.
+    Refuses to delete directories.
+    Checks permissions.
+    Deletes the file using: std::remove() .
+    Returns 200 OK if successful.
+
+=> ERROR PAGES
+    Handles error codes such as:
+    404 Not Found
+    403 Forbidden
+    405 Method Not Allowed
+    500 Internal Server Error
+    If a custom error page exists in the config, it serves that page.
+    Otherwise it sends a default HTML error message.
+
+
+
+    -------------------------------------------------------
+
+    post logic:
+
+        POST request
+        ↓
+    Find matching location
+        ↓
+    Upload enabled?
+        ↓
+    NO → 403
+
+    YES
+    ↓
+    Upload directory configured?
+    ↓
+    NO → 500
+
+    YES
+    ↓
+    Create file
+    ↓
+    Open file
+    ↓
+    Failed?
+    ↓
+    YES → 500
+
+    NO
+    ↓
+    Write req.body
+    ↓
+    Close file
+    ↓
+    201 Created

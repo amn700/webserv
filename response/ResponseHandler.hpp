@@ -6,7 +6,7 @@
 /*   By: naessgui <naessgui@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/05/15 20:47:01 by naessgui          #+#    #+#             */
-/*   Updated: 2026/05/24 20:21:53 by naessgui         ###   ########.fr       */
+/*   Updated: 2026/06/03 20:23:19 by naessgui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -35,6 +35,8 @@ class ResponseHandler
 
         Response handleGET(const std::string& path);
         Response handlePOST();
-        Response handleDELETE(const std::string& path);
+        Response handleDELETE();
+        Response handleAutoIndex(const std::string& path);
+
 };
 #endif

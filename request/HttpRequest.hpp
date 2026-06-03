@@ -34,6 +34,7 @@ public:
 
     HttpRequest(const std::string& raw_request,const ServerConfig& serv);
     validat validate_request(const ServerConfig& serv);
+    void reqq();
 };
 
 
