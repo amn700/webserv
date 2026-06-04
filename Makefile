@@ -1,31 +1,37 @@
-NAME := webserv
-
-CXX := c++
-CXXFLAGS := -std=c++98 -Wall -Wextra -Werror
+CXX := g++
+CXXFLAGS := -Wall -Wextra -Werror -std=c++98
 
 SRCS := \
-	test.cpp \
-	config_parse.cpp \
+	main.cpp \
+	ConfigLoader.cpp \
 	listen_parser.cpp \
-	socket.cpp \
-	request/HttpRequest.cpp	
+	request/HttpRequest.cpp \
+	WebServer.cpp \
+	Socket.cpp \
+	location_parsing.cpp \
+
 
 OBJS := $(SRCS:.cpp=.o)
+TARGET := webserv
 
-.PHONY: all clean fclean re
 
-all: $(NAME)
+all: $(TARGET)
 
-$(NAME): $(OBJS)
-	$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME)
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+run: re
+	./$(TARGET) configurations/webserv.conf
+
+re: clean all
+
 clean:
-	rm -f $(OBJS)
+	rm -f *.o $(OBJS)
 
 fclean: clean
-	rm -f $(NAME)
+	rm -rf $(TARGET)
 
-re: fclean all
+.PHONY: all fclean clean re run test
