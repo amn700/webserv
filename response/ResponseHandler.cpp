@@ -202,7 +202,7 @@ Response ResponseHandler::handleGET(const std::string& path)
 Response ResponseHandler::handleDELETE()
 {
     Response res;
-    std::string path = requ.path;//req.validation.path;
+    std::string path = req.redirect_target;//req.validation.path;
     // struct stat st;
 
     // if (stat(path.c_str(), &st) != 0)
@@ -331,7 +331,7 @@ Response ResponseHandler::handle()
         return handleGET(req.redirect_target);
     
     else if (req.method == "DELETE")
-        return handleDELETE(req.redirect_target);
+        return handleDELETE();
     else if (req.method == "POST")
         return handlePOST();
     Response res;
