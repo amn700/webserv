@@ -12,6 +12,8 @@
 
 #include "response.hpp"
 
+// std::string intToString(int v);
+
 Response::Response()
 {
 }
@@ -51,14 +53,25 @@ void Response::print() const
     std::cout << "=========================" << std::endl;
 }
 
+#include <sstream>
+
+std::string intToString(int v)
+{
+    std::ostringstream oss;
+    oss << v;
+    return oss.str();
+}
+
+
+
 std::string Response::buildResponse()
 {
     std::string response;
 
-    headers["Content-Length"] = std::to_string(body.size());
+    headers["Content-Length"] = intToString(body.size());
 
     response += "HTTP/1.1 ";
-    response += std::to_string(statusCode);
+    response += intToString(statusCode);
     response += " ";
     response += statusMessage;
     response += "\r\n";

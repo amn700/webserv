@@ -7,6 +7,8 @@
 #include <set>
 
 
+std::string intToString(int v);
+
 struct ServerConfig {
     struct Listen {
         std::string host; // "127.0.0.1" or "0.0.0.0" l ip dial server

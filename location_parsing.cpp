@@ -1,4 +1,4 @@
-#include "ConfigLoader.hpp"
+#include "configloader.hpp"
 #include "configtypes.hpp"
 
 #include <cctype>

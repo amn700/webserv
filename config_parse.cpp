@@ -1,6 +1,6 @@
 #include "configtypes.hpp"
 #include "configloader.hpp"
-#include "webserv.hpp"
+// #include "webserv.hpp"
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -10,7 +10,7 @@
 Listen parseListenIPv4Port4(const std::string& s);
 Listen parseListenHostPort(const std::string& s);
 
-static std::string intToString(int v)
+std::string intToString(int v)
 {
     std::ostringstream oss;
     oss << v;

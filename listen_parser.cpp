@@ -3,7 +3,7 @@
 #include <cctype>
 #include <cstdlib>
 #include "configtypes.hpp"
-#include "ConfigLoader.hpp"
+#include "configloader.hpp"
 
 // static std::string toLower(const std::string& s)
 // {
