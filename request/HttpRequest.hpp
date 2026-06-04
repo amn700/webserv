@@ -1,18 +1,18 @@
 #ifndef HTTPREQUEST_HPP
 #define HTTPREQUEST_HPP
 #include <map>
-#include <iostream>   // for std::cout, std::endl
+// #include <iostream>   // for std::cout, std::endl
 #include <string>     // for std::string
-#include <sstream>    // for std::stringstream
-#include <vector> 
-#include <iostream>
+// #include <sstream>    // for std::stringstream
+// #include <vector> 
+// #include <iostream>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <cstring>
 #include <string>
 #include <sys/stat.h>  // stat, struct stat, S_ISDIR
 #include <unistd.h>    // access, R_OK
-#include <errno.h>
+// #include <errno.h>
 #include "../configtypes.hpp"
 
 struct validat {
@@ -34,19 +34,7 @@ public:
 
     HttpRequest(const std::string& raw_request,const ServerConfig& serv);
     validat validate_request(const ServerConfig& serv);
-
-    friend std::ostream& operator<<(std::ostream& os, const HttpRequest& req) {
-        os << "Method: " << req.method << "\n";
-        os << "Path: " << req.path << "\n";
-        os << "Version: " << req.version << "\n";
-        os << "Headers:\n";
-        for (std::map<std::string, std::string>::const_iterator it = req.headers.begin(); it != req.headers.end(); ++it) {
-            os << "  " << it->first << ": " << it->second << "\n";
-        }
-        os << "Status: " << req.status << "\n";
-        os << "Body:\n" << req.body << "\n";
-        return os;
-    }
+    void reqq();
 };
 
 

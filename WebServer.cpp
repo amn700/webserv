@@ -6,7 +6,8 @@
 
 #include <ostream>
 #include <sys/socket.h>
-
+#include "response/response.hpp"
+#include "response/ResponseHandler.hpp"
 #include <netdb.h>
 #include <netinet/in.h>
 
@@ -286,6 +287,13 @@ bool WebServer::handleClientEvents(size_t clientPollIndex)
                 std::cout << std::endl;
                 // const size_t idx = (st.serverIndex < _conf.servers.size()) ? st.serverIndex : 0;
                 HttpRequest req(st.in, _conf.servers[st.serverIndex]);
+                req.reqq();
+                std::cout << std::endl;
+
+                ResponseHandler handler(req, _conf.servers[st.serverIndex]);
+
+                Response res = handler.handle();
+                res.print();
                 std::cout << std::endl;
 
             } catch (const std::exception& e) {
