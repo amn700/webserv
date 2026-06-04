@@ -343,6 +343,15 @@ Response ResponseHandler::handle()
     return res;
 }
 
+Response ResponseHandler::handlePOST()
+{
+    Response res;
+    res.setStatus(201, "Created");
+    res.setBody("<h1>POST Request Placeholder</h1>");
+    res.setHeader("Content-Type", "text/html");
+    return res;
+}
+
 // Response ResponseHandler::handlePOST()
 // {
 //     const LocationConfig* loc = best_match_location(req.path, conf);

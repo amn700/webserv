@@ -293,7 +293,7 @@ bool WebServer::handleClientEvents(size_t clientPollIndex)
                 ResponseHandler handler(req, _conf.servers[st.serverIndex]);
 
                 Response res = handler.handle();
-
+                res.print();
                 std::cout << std::endl;
 
             } catch (const std::exception& e) {
