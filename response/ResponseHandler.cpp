@@ -148,13 +148,7 @@ Response ResponseHandler::handleReqErrors()
             res.setBody(content);
             res.setHeader("Content-Type", getMimeType(it->second));
         }
-        // std::string content = readFile(it->second);
-
-        //     if (!content.empty())
-        //     {
-        //         res.setBody(content);
-        //         res.setHeader("Content-Type", getMimeType(it->second));
-        //     }
+      
     }
     else 
     {
@@ -202,32 +196,8 @@ Response ResponseHandler::handleGET(const std::string& path)
 Response ResponseHandler::handleDELETE()
 {
     Response res;
-    std::string path = requ.path;//req.validation.path;
-    // struct stat st;
-
-    // if (stat(path.c_str(), &st) != 0)
-    // {
-    //     res.setStatus(404, "Not Found");
-    //     res.setBody("<h1>404 Not Found</h1>");
-    //     res.setHeader("Content-Type", "text/html");
-    //     return res;
-    // }
-
-    // if (S_ISDIR(st.st_mode))
-    // {
-    //     res.setStatus(403, "Forbidden");
-    //     res.setBody("<h1>403 Forbidden (Directory)</h1>");
-    //     res.setHeader("Content-Type", "text/html");
-    //     return res;
-    // }
-
-    // if (access(path.c_str(), W_OK) != 0)
-    // {
-    //     res.setStatus(403, "Forbidden");
-    //     res.setBody("<h1>403 Forbidden (No permission)</h1>");
-    //     res.setHeader("Content-Type", "text/html");
-    //     return res;
-    // }
+    std::string path = req.redirect_target;
+  
     if (std::remove(path.c_str()) != 0)
     {
         res.setStatus(500, "Internal Server Error");
@@ -242,36 +212,6 @@ Response ResponseHandler::handleDELETE()
 
     return res;
 }
-
-
-// Response ResponseHandler::handlePOST(const std::string& path)
-// {
-//     Response res;
-
-//     std::string filename = path + "/upload.txt";
-
-//     std::ofstream file(filename.c_str());
-
-//     if (!file.is_open())
-//     {
-//         res.setStatus(500, "Internal Server Error");
-//         res.setBody("<h1>500 Internal Server Error</h1>");
-//         res.setHeader("Content-Type", "text/html");
-//         return res;
-//     }
-
-//     file << req.body;
-//     file.close();
-
-//     res.setStatus(201, "Created");
-//     res.setBody("<h1>File Uploaded Successfully</h1>");
-//     res.setHeader("Content-Type", "text/html");
-
-//     return res;
-// }
-
-
-
 
 
 Response ResponseHandler::handleAutoIndex(const std::string& path)
@@ -315,10 +255,6 @@ Response ResponseHandler::handleAutoIndex(const std::string& path)
     return res;
 }
 
-
-
-
-
 Response ResponseHandler::handle()
 {
     
@@ -331,7 +267,7 @@ Response ResponseHandler::handle()
         return handleGET(req.redirect_target);
     
     else if (req.method == "DELETE")
-        return handleDELETE(req.redirect_target);
+        return handleDELETE();
     else if (req.method == "POST")
         return handlePOST();
     Response res;
@@ -343,53 +279,34 @@ Response ResponseHandler::handle()
     return res;
 }
 
-// Response ResponseHandler::handlePOST()
-// {
-//     const LocationConfig* loc = best_match_location(req.path, conf);
 
-//     Response res;
 
-//     if (!loc || !loc->upload.enabled)
-//     {
-//         res.setStatus(403, "Forbidden");
-//         res.setBody("<h1>403 Forbidden</h1>");
-//         res.setHeader("Content-Type", "text/html");
-//         return res;
-//     }
-//     if (loc->upload.dir.empty())
-//     {
-//         res.setStatus(500, "Internal Server Error");
-//         res.setBody("<h1>Upload directory not configured</h1>");
-//         res.setHeader("Content-Type", "text/html");
-//         return res;
-//     }
-//     std::string filename = loc->upload.dir + "/upload.txt";
-//     struct stat st;
+Response ResponseHandler::handlePOST()
+{
+    Response res;
 
-//     if (stat(loc->upload.dir.c_str(), &st) != 0)
-//     {
-//         res.setStatus(500, "Internal Server Error");
-//         res.setBody("<h1>Upload directory does not exist</h1>");
-//         res.setHeader("Content-Type", "text/html");
-//         return res;
-//     }
+    // std::cout << "POST target: "
+    //           << req.redirect_target
+    //           << std::endl;
 
-//     std::ofstream file(filename.c_str());
+    std::string filePath = req.redirect_target + "upload.txt";
 
-//     if (!file.is_open())
-//     {
-//         res.setStatus(500, "Internal Server Error");
-//         res.setBody("<h1>500 Internal Server Error</h1>");
-//         res.setHeader("Content-Type", "text/html");
-//         return res;
-//     }
+    std::ofstream file(filePath.c_str());
 
-//     file << req.body;
-//     file.close();
+    if (!file.is_open())
+    {
+        res.setStatus(500, "Internal Server Error");
+        res.setBody("<h1>500 Internal Server Error</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
+ 
+    file << req.body;
+    file.close();
 
-//     res.setStatus(201, "Created");
-//     res.setBody("<h1>File Uploaded Successfully</h1>");
-//     res.setHeader("Content-Type", "text/html");
+    res.setStatus(201, "Created");
+    res.setBody("<h1>Upload successful</h1>");
+    res.setHeader("Content-Type", "text/html");
 
-//     return res;
-// }
+    return res;
+}
