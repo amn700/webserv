@@ -2,7 +2,7 @@
 #define WEBSERVER_HPP
 
 #include "configtypes.hpp"
-#include "Socket.hpp"
+#include "socket.hpp"
 
 #include <poll.h>
 

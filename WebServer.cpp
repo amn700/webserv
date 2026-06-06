@@ -1,6 +1,6 @@
 #include "WebServer.hpp"
 
-#include "Socket.hpp"
+#include "socket.hpp"
 
 #include "request/HttpRequest.hpp"
 
