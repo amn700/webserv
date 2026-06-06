@@ -445,7 +445,7 @@ validat HttpRequest::validate_request(const ServerConfig& serv)
 
 HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& serv)
 {
-    const size_t MAX_BODY = 1024 * 1024 * 5; // 5 MiB max body size (change if you want)
+    const size_t MAX_BODY = serv.client_max_body_size; // 5 MiB max body size (change if you want)
     const size_t MAX_PATH = 2048; // 2048 bytes max URI/path size
 
     try {
