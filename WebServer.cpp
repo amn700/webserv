@@ -17,7 +17,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <iostream>
-// #include <sstream>
+#include <cctype>
+#include <sstream>
 #include <stdexcept>
 
 // static std::string peerToString(int fd)
@@ -65,6 +66,78 @@
 static std::string syscallError(const std::string& what)
 {
     return what + ": " + ::strerror(errno);
+}
+
+static std::string toLower(const std::string& s)
+{
+    std::string out = s;
+    for (size_t i = 0; i < out.size(); ++i)
+        out[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(out[i])));
+    return out;
+}
+
+static std::string trim(const std::string& s)
+{
+    size_t start = 0;
+    while (start < s.size() && (s[start] == ' ' || s[start] == '\t'))
+        ++start;
+    size_t end = s.size();
+    while (end > start && (s[end - 1] == ' ' || s[end - 1] == '\t'))
+        --end;
+    return s.substr(start, end - start);
+}
+
+static std::string extractHostHeader(const std::string& raw)
+{
+    std::istringstream ss(raw);
+    std::string line;
+    bool first = true;
+    while (std::getline(ss, line)) {
+        if (!line.empty() && line[line.size() - 1] == '\r')
+            line.erase(line.size() - 1);
+        if (first) {
+            first = false;
+            continue;
+        }
+        if (line.empty())
+            break;
+        size_t colon = line.find(':');
+        if (colon == std::string::npos)
+            continue;
+        std::string key = toLower(trim(line.substr(0, colon)));
+        if (key != "host")
+            continue;
+        std::string value = trim(line.substr(colon + 1));
+        if (!value.empty() && value[0] == '[') {
+            size_t end = value.find(']');
+            if (end != std::string::npos)
+                return value.substr(1, end - 1);
+            return value;
+        }
+        size_t port = value.find(':');
+        if (port != std::string::npos)
+            value = value.substr(0, port);
+        return value;
+    }
+    return "";
+}
+
+size_t WebServer::selectServerIndex(int listenerFd, const std::string& hostHeader) const
+{
+    std::map<int, std::vector<size_t> >::const_iterator it = _listenerToServerIndices.find(listenerFd);
+    if (it == _listenerToServerIndices.end() || it->second.empty())
+        return 0;
+
+    if (hostHeader.empty())
+        return it->second[0];
+
+    const std::string host = toLower(hostHeader);
+    for (size_t i = 0; i < it->second.size(); ++i) {
+        const ServerConfig& sc = _conf.servers[it->second[i]];
+        if (!sc.server_name.empty() && toLower(sc.server_name) == host)
+            return it->second[i];
+    }
+    return it->second[0];
 }
 
 // static std::string listenKey(const std::string& host, int port)
@@ -283,29 +356,31 @@ bool WebServer::handleClientEvents(size_t clientPollIndex)
         if (!st.responded && hasHeaderTerminator(st.in))
         {
             try {
-                std::cout << "Received request to server: " << st.serverIndex << " on fd: " << st.listenerFd << std::endl;
-                std::cout << std::endl;
-                // const size_t idx = (st.serverIndex < _conf.servers.size()) ? st.serverIndex : 0;
-                HttpRequest req(st.in, _conf.servers[st.serverIndex]);
-                req.reqq();
-                std::cout << std::endl;
+                // std::cout << "Received request to server: " << st.serverIndex << " on fd: " << st.listenerFd << std::endl;
+                // std::cout << std::endl;
+                const std::string host = extractHostHeader(st.in);
+                const size_t idx = selectServerIndex(st.listenerFd, host);
+                HttpRequest req(st.in, _conf.servers[idx]);
+                // req.reqq();
+                // std::cout << std::endl;
 
-                ResponseHandler handler(req, _conf.servers[st.serverIndex]);
-
-                Response res = handler.handle();
-                res.print();
-                std::cout << std::endl;
+                // ResponseHandler handler(req, _conf.servers[st.serverIndex]);
+                //vhost selection
+                
+                Response res = ResponseHandler(req, _conf.servers[idx]).handle();
+                // res.print();
+                // std::cout << std::endl;
+                st.out = res.buildResponse();
+                std::cout << st.out << std::endl;
+                
 
             } catch (const std::exception& e) {
                 std::cerr << "[webserv] parse error: " << e.what() << std::endl;
             }
-            st.out = "funny nose implementation!!\n";
             st.responded = true;
-            closeAndRemove(clientPollIndex);
-            return true;
         }
     }
-
+// std::cout <<"hello\n";
     if ((re & POLLOUT) != 0 && !st.out.empty()) {
         int sendFlags = 0;
 #ifdef MSG_NOSIGNAL

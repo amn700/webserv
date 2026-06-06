@@ -62,8 +62,6 @@ std::string intToString(int v)
     return oss.str();
 }
 
-
-
 std::string Response::buildResponse()
 {
     std::string response;
