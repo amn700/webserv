@@ -28,6 +28,7 @@ public:
     std::map<std::string, std::string> headers;
     std::string body;
     std::map<std::string, std::string> query_params;
+    std::string confurm_path;
 
     int status; // set to 200, 404, 403, 405, 301...
     std::string redirect_target; // empty unless redirect

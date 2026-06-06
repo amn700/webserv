@@ -323,12 +323,12 @@ Response ResponseHandler::handle()
 {
     
     if (req.status == 1001)
-        return handleAutoIndex(req.redirect_target);
+        return handleAutoIndex(req.confurm_path);
     if (req.status != 200)
         return handleReqErrors();
 
     if (req.method == "GET")
-        return handleGET(req.redirect_target);
+        return handleGET(req.confurm_path);
     
     else if (req.method == "DELETE")
         return handleDELETE();

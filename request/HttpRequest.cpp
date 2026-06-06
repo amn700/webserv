@@ -163,105 +163,6 @@ bool method_allowed(const std::string& method, const ServerConfig::LocationConfi
     return loc->methods.count(toLower(method)) != 0;
 }
 
-// void check_path_get(validat& requ, const std::string& fs_path, const ServerConfig::LocationConfig* loc)
-// {
-//     struct stat st;
-//     std::string check_path = fs_path;
-
-//     // If path is "/" (or equivalent), search for index files in the root
-//     // if (fs_path == "/" || fs_path.empty())
-//     // {
-        
-//     //     if (!loc || loc->index.empty())
-//     //     {
-//     //         requ.code = 403;
-//     //         requ.path = "";
-//     //         return;
-//     //     }
-//     //     for (size_t i = 0; i < loc->index.size(); ++i)
-//     //     {
-//     //         std::string index_path = loc->root + loc->index[i]; // Ensure loc->root ends without slash
-//     //         struct stat index_st;
-//     //         if (stat(index_path.c_str(), &index_st) == 0 && S_ISREG(index_st.st_mode) && access(index_path.c_str(), R_OK) == 0)
-//     //         {
-                
-//     //             requ.code = 200;
-//     //             requ.path = index_path;
-//     //             return;
-//     //         }
-//     //     }
-//     //     // No index file found, check autoindex
-//     //     if (loc->autoindex) 
-//     //     {
-//     //         requ.code = 1001; // autoindex listing
-//     //         requ.path = loc->root; // The directory to list
-//     //         return;
-//     //     }
-//     //     else 
-//     //     {
-//     //         requ.code = 403;
-//     //         requ.path = "";
-//     //         return;
-//     //     }
-//     // }
-
-//     // Original code (unchanged) follows for all other paths
-//     if (stat(fs_path.c_str(), &st) != 0) 
-//     {
-//         if (errno == ENOENT || errno == ENOTDIR) {
-//             requ.code=404;
-//             requ.path="";
-//             return;
-//         }
-//         if (errno == EACCES || errno == EPERM) {
-//             requ.code=403;
-//             requ.path="";
-//             return;
-//         }
-//         requ.code=500;
-//         requ.path="";
-//         return;
-//     }
-//     if (S_ISDIR(st.st_mode)) 
-//     {
-//         // Check for index file in this directory
-//         for (size_t i = 0; loc && i < loc->index.size(); i++) {
-//             std::string index_path = fs_path + loc->index[i];
-//             struct stat index_st;
-//             if (stat(index_path.c_str(), &index_st) == 0 && S_ISREG(index_st.st_mode) && access(index_path.c_str(), R_OK) == 0)
-//             {
-//             //    std::cout<<"this---"<<fs_path  <<std::endl;
-//             //    std::cout<<"that---"<< loc->index[i]<<std::endl;
-//                 requ.code = 200;
-//                 requ.path = index_path;
-//                 return;
-//             }
-//         }
-//         if (loc && loc->autoindex) {
-//             requ.code = 1001;
-//             requ.path = fs_path;
-//             return;
-//         }
-//         requ.code=403;
-//         requ.path="";
-//         return;
-//     }
-//     if (access(fs_path.c_str(), R_OK) != 0) {
-//         if (errno == EACCES || errno == EPERM) {
-//             requ.code=403;
-//             requ.path="";
-//             return;
-//         }
-//         requ.code=500;
-//         requ.path="";
-//         return;
-//     }
-//     requ.code=200;
-//     requ.path=fs_path;
-//     return;
-// }
-
-// Replace check_path_get with a generic checker (keep the old name if you want)
 void check_path_get(validat& requ,
                        const std::string& fs_path,
                        const ServerConfig::LocationConfig* loc,
@@ -397,29 +298,16 @@ void check_path_get(validat& requ,
     requ.code=200;
     requ.path=fs_path;
     return;
-    
 
-    // Regular file GET: must be readable
-    // if (access(fs_path.c_str(), R_OK) != 0) {
-    //     if (errno == EACCES || errno == EPERM) {
-    //         requ.code = 403;
-    //         requ.path = "";
-    //         return;
-    //     }
-    //     requ.code = 500;
-    //     requ.path = "";
-    //     return;
-    // }
-
-    // requ.code = 200;
-    // requ.path = fs_path;
 }
 
 validat HttpRequest::validate_request(const ServerConfig& serv)
 {
     const ServerConfig::LocationConfig* loc = best_match_location(this->path, serv);
     validat requ;
-    if (loc && loc->redirect.enabled) {
+    
+    if (loc && loc->redirect.enabled)
+    {
         this->redirect_target = loc->redirect.target;
         requ.path = "";
         requ.code = loc->redirect.code;
@@ -431,13 +319,34 @@ validat HttpRequest::validate_request(const ServerConfig& serv)
         requ.path = "";
         return requ;
     }
+    
+    // Handle upload directory
+    if (loc && loc->upload.enabled && !loc->upload.dir.empty()) {
+        // Check if the request path matches the upload location prefix
+        if (this->path.find(loc->prefix) == 0) {  // path starts with upload prefix
+            
+            // Verify upload directory exists
+            struct stat st;
+            if (stat(loc->upload.dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
+                // Upload directory exists and is a valid directory
+                requ.path = loc->upload.dir;
+                requ.code = 200;  // or handle based on method (POST/PUT for upload)
+                return requ;
+            } else {
+                // Upload directory doesn't exist or isn't a directory
+                requ.code = 500;  // Internal server error
+                requ.path = "";
+                return requ;
+            }
+        }
+    }
    
-// (otherwise proceed to GET logic)
+    // (otherwise proceed to normal file logic)
     std::string root = serv.root;
     if (loc && !loc->root.empty())
         root = loc->root;
     std::string fs_path = root + this->path; 
-    check_path_get(requ, fs_path, loc ,this->method);
+    check_path_get(requ, fs_path, loc, this->method);
     return requ;
 }
 
@@ -455,7 +364,7 @@ HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& ser
         std::vector<std::string> lines;
         std::stringstream ss(raw_request);
         std::string line;
-        this->redirect_target = "";
+        this->confurm_path = "";
         while (std::getline(ss, line)) 
             lines.push_back(line);
 
@@ -472,7 +381,7 @@ HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& ser
         // [COMPLETE] 414 URI Too Long
         if (this->path.size() > MAX_PATH) {
             this->status = 414;
-            this->redirect_target = "";
+            this->confurm_path = "";
             return;
         }
 
@@ -482,7 +391,7 @@ HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& ser
         if ((this->version == "HTTP/1.1" || this->version == "HTTP/2.0") &&
             this->headers.find("Host") == this->headers.end()) {
             this->status = 400; // Bad Request
-            this->redirect_target = "";
+            this->confurm_path = "";
             return;
         }
 
@@ -490,7 +399,7 @@ HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& ser
         if ((this->method == "POST" || this->method == "PUT") &&
             this->headers.find("Content-Length") == this->headers.end()) {
             this->status = 411;
-            this->redirect_target = "";
+            this->confurm_path = "";
             return;
         }
 
@@ -526,7 +435,7 @@ if (this->method == "POST" || this->method == "PUT") {
         this->query_params = pars_query(lines[0]);
         this->status = validate_request(serv).code;
         if (this->status == 200 || this->status == 1001)
-            this->redirect_target = validate_request(serv).path;
+            this->confurm_path = validate_request(serv).path;
     } 
     catch (const std::logic_error& e) 
     { // in constructor catch list
@@ -534,12 +443,12 @@ if (this->method == "POST" || this->method == "PUT") {
             this->status = 501;
         else
             this->status = 400;
-        this->redirect_target = "";
+        this->confurm_path = "";
     }
     catch (const std::exception& e) 
     {
         this->status = 400;
-        this->redirect_target = "";
+        this->confurm_path = "";
     }
 }
 
@@ -550,6 +459,7 @@ void HttpRequest::reqq()
  std::cout
   << "method: " << this->method << "\n"
   << "path: " << this->path << "\n"
+  << "confurm_path: "<<this->confurm_path<<"\n"
   << "version: " << this->version << "\n"
   << "body: " << this->body << "\n"
   << "status: " << this->status << "\n"
