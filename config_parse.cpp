@@ -7,8 +7,6 @@
 #include <iostream>
 #include <cctype>
 
-Listen parseListenIPv4Port4(const std::string& s);
-Listen parseListenHostPort(const std::string& s);
 
 std::string intToString(int v)
 {
@@ -232,4 +230,3 @@ Config ConfigLoader:: loadFromFile(const std::string& path)
     return  ::: optional, only one allowed; default none
         ex: return 301 http://example.com/;
 */
-
