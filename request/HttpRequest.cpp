@@ -276,6 +276,11 @@ void check_path_get(validat& requ,
             requ.path = "";
             return;
         }
+        if (errno == ENAMETOOLONG) {
+            requ.code = 414;
+            requ.path = "";
+            return;
+        }
         if (errno == EACCES || errno == EPERM) {
             requ.code = 403;
             requ.path = "";

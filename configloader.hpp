@@ -30,7 +30,7 @@ void expect(TokenList::const_iterator& it, TokenList::const_iterator end, TokenT
 
 void expectWord(TokenList::const_iterator& it, TokenList::const_iterator end, const std::string& word);
 
-ServerConfig::Listen parseListenIPv4Port4(const std::string& s);
+// ServerConfig::Listen parseListenIPv4Port4(const std::string& s);
 
 ServerConfig::Listen parseListen(const std::string& s);
 
