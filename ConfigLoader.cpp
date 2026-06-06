@@ -1,4 +1,4 @@
-#include "ConfigLoader.hpp"
+#include "configloader.hpp"
 #include "configtypes.hpp"
 
 #include <cstdlib>
@@ -6,7 +6,7 @@
 #include <sstream>
 #include <string>
 #include <cctype>
-#include <iostream>
+// #include <iostream>
 
 
 std::string intToStr(int v)

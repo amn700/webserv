@@ -2,7 +2,7 @@
 #define WEBSERVER_HPP
 
 #include "configtypes.hpp"
-#include "Socket.hpp"
+#include "socket.hpp"
 
 #include <poll.h>
 
@@ -44,6 +44,7 @@ private:
     bool isListenerFd(int fd) const;
     void addListener(int listenerFd);
     void addClient(int clientFd, int listenerFd, size_t serverIndex);
+    size_t selectServerIndex(int listenerFd, const std::string& hostHeader) const;
 
     void closeAndRemove(size_t pollIndex);
 

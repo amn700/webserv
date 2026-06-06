@@ -1,6 +1,6 @@
 #include <iostream>
 #include "configtypes.hpp"
-#include "ConfigLoader.hpp"
+#include "configloader.hpp"
 #include "WebServer.hpp"
 
 

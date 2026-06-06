@@ -3,11 +3,11 @@ CXXFLAGS := -Wall -Wextra -Werror -std=c++98
 
 SRCS := \
 	main.cpp \
-	ConfigLoader.cpp \
+	configloader.cpp \
 	listen_parser.cpp \
 	request/HttpRequest.cpp \
 	WebServer.cpp \
-	Socket.cpp \
+	socket.cpp \
 	location_parsing.cpp \
 	response/response.cpp response/ResponseHandler.cpp
 
