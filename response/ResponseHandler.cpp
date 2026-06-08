@@ -119,6 +119,11 @@ Response ResponseHandler::handleReqErrors()
         res.setStatus(414, "URI Too Long");
         res.setBody("<h1>414 URI Too Long</h1>");
     }
+    else if (req.status == 508)
+    {
+        res.setStatus(508, "Loop Detected");
+        res.setBody("<h1>508 Loop Detected</h1>");
+    }
     else if (req.status == 501)
     {
         res.setStatus(501, "Not Implemented");

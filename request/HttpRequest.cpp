@@ -303,16 +303,53 @@ void check_path_get(validat& requ,
 
 validat HttpRequest::validate_request(const ServerConfig& serv)
 {
-    const ServerConfig::LocationConfig* loc = best_match_location(this->path, serv);
+    std::string current_path = this->path;
+    const ServerConfig::LocationConfig* loc = best_match_location(current_path, serv);
     validat requ;
-    
+
     if (loc && loc->redirect.enabled)
     {
-        this->redirect_target = loc->redirect.target;
-        requ.path = "";
-        requ.code = loc->redirect.code;
-        return requ;
+        
+        requ.code=loc->redirect.code;
+        int redirects_followed = 0;
+        int max_redirects = serv.locations.size();
+        current_path = loc->redirect.target;
+
+        while (loc && loc->redirect.enabled && redirects_followed < max_redirects)
+        {
+            current_path = loc->redirect.target;
+            redirects_followed++;
+            loc = best_match_location(current_path, serv);
+        }
+
+        if (redirects_followed >= max_redirects)
+        {
+            requ.code = 508;
+            return requ;
+        }
+        std::string root = serv.root;
+        if (loc && !loc->root.empty())
+            root = loc->root;
+        std::string fs_path = root + current_path;
+
+        struct stat st;
+        if (stat(fs_path.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
+        {
+            if (loc && !loc->index.empty())
+            {
+                for (size_t i = 0; i < loc->index.size(); i++)
+                {
+                    std::string index_path = fs_path + loc->index[i];
+                    if (stat(index_path.c_str(), &st) == 0 && S_ISREG(st.st_mode))
+                    {
+                        this->redirect_target = current_path+ loc->index[i];
+                        return requ;
+                    }
+                }
+            }
+        }
     }
+
     if (!method_allowed(this->method, loc)) 
     {
         requ.code = 405;
@@ -320,28 +357,26 @@ validat HttpRequest::validate_request(const ServerConfig& serv)
         return requ;
     }
     
-    // Handle upload directory
-    if (loc && loc->upload.enabled && !loc->upload.dir.empty()) {
-        // Check if the request path matches the upload location prefix
-        if (this->path.find(loc->prefix) == 0) {  // path starts with upload prefix
-            
-            // Verify upload directory exists
+    if (loc && loc->upload.enabled && !loc->upload.dir.empty())
+    {
+        if (this->path.find(loc->prefix) == 0)
+        {
+
             struct stat st;
-            if (stat(loc->upload.dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
-                // Upload directory exists and is a valid directory
+            if (stat(loc->upload.dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
+            {
                 requ.path = loc->upload.dir;
-                requ.code = 200;  // or handle based on method (POST/PUT for upload)
+                requ.code = 200;
                 return requ;
-            } else {
-                // Upload directory doesn't exist or isn't a directory
-                requ.code = 500;  // Internal server error
+            }
+            else
+            {
+                requ.code = 500;
                 requ.path = "";
                 return requ;
             }
         }
     }
-   
-    // (otherwise proceed to normal file logic)
     std::string root = serv.root;
     if (loc && !loc->root.empty())
         root = loc->root;
@@ -350,11 +385,9 @@ validat HttpRequest::validate_request(const ServerConfig& serv)
     return requ;
 }
 
-// --- The fixed, robust HttpRequest constructor. All error codes are correct. ---
-
 HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& serv)
 {
-    const size_t MAX_BODY = serv.client_max_body_size; // 5 MiB max body size (change if you want)
+    const size_t MAX_BODY = serv.client_max_body_size;
     const size_t MAX_PATH = 2048; // 2048 bytes max URI/path size
 
     try {
