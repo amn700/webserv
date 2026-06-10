@@ -1,5 +1,3 @@
-
-
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
@@ -8,7 +6,7 @@
 /*   By: naessgui <naessgui@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/05/15 20:46:44 by naessgui          #+#    #+#             */
-/*   Updated: 2026/06/02 20:21:26 by naessgui         ###   ########.fr       */
+/*   Updated: 2026/06/06 15:52:13 by naessgui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -169,7 +167,7 @@ Response ResponseHandler::handleGET(const std::string& path)
     //     res.setBody("<h1>404 Not Found</h1>");
     //     res.setHeader("Content-Type", "text/html");
     //     return res;
-    // }
+    // }clear
     // if (S_ISDIR(st.st_mode)) //check if directory
     // {
         
@@ -183,7 +181,7 @@ Response ResponseHandler::handleGET(const std::string& path)
         res.setHeader("Content-Type", "text/html");
         return res;
     }
-
+    
     res.setStatus(200, "OK");
     res.setBody(content);
     res.setHeader("Content-Type", getMimeType(path));
@@ -285,11 +283,19 @@ Response ResponseHandler::handlePOST()
 {
     Response res;
 
-    // std::cout << "POST target: "
-    //           << req.redirect_target
-    //           << std::endl;
+  
+    std::string filePath;
+    int i = 1;
+    while(1)
+    {
+        filePath = req.redirect_target + "upload" + toString(i) + ".txt";
 
-    std::string filePath = req.redirect_target + "upload.txt";
+        std::ifstream f(filePath.c_str());
+        if (!f)
+            break;
+        i++;
+
+    }
 
     std::ofstream file(filePath.c_str());
 
@@ -300,6 +306,7 @@ Response ResponseHandler::handlePOST()
         res.setHeader("Content-Type", "text/html");
         return res;
     }
+
  
     file << req.body;
     file.close();
@@ -310,3 +317,37 @@ Response ResponseHandler::handlePOST()
 
     return res;
 }
+
+
+// Response ResponseHandler::handlePOST()
+// {
+//     Response res;
+
+//     // std::cout << "POST target: "
+//     //           << req.redirect_target
+//     //           << std::endl;
+
+//     // Build destination file path
+//     std::string filePath = req.redirect_target + "upload.txt";
+
+//     // Open file for writing
+//     std::ofstream file(filePath.c_str());
+
+//     if (!file.is_open())
+//     {
+//         res.setStatus(500, "Internal Server Error");
+//         res.setBody("<h1>500 Internal Server Error</h1>");
+//         res.setHeader("Content-Type", "text/html");
+//         return res;
+//     }
+
+ 
+//     file << req.body;
+//     file.close();
+
+//     res.setStatus(201, "Created");
+//     res.setBody("<h1>Upload successful</h1>");
+//     res.setHeader("Content-Type", "text/html");
+
+//     return res;
+// }
