@@ -1,3 +1,5 @@
+
+
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
@@ -6,7 +8,7 @@
 /*   By: naessgui <naessgui@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/05/15 20:46:44 by naessgui          #+#    #+#             */
-/*   Updated: 2026/06/06 15:52:13 by naessgui         ###   ########.fr       */
+/*   Updated: 2026/06/02 20:21:26 by naessgui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -167,7 +169,7 @@ Response ResponseHandler::handleGET(const std::string& path)
     //     res.setBody("<h1>404 Not Found</h1>");
     //     res.setHeader("Content-Type", "text/html");
     //     return res;
-    // }clear
+    // }
     // if (S_ISDIR(st.st_mode)) //check if directory
     // {
         
@@ -181,7 +183,7 @@ Response ResponseHandler::handleGET(const std::string& path)
         res.setHeader("Content-Type", "text/html");
         return res;
     }
-    
+
     res.setStatus(200, "OK");
     res.setBody(content);
     res.setHeader("Content-Type", getMimeType(path));
@@ -278,26 +280,53 @@ Response ResponseHandler::handle()
 }
 
 
+std::string getExtFromContentType(const std::string& ct)
+{
+    if (ct.find("text/plain") != std::string::npos || ct.find("application/x-www-form-urlencoded") != std::string::npos )      
+        return ".txt";
+    if (ct.find("text/html") != std::string::npos)       
+        return ".html";
+    if (ct.find("application/json") != std::string::npos) 
+        return ".json";
+    if (ct.find("image/png") != std::string::npos)       
+        return ".png";
+    if (ct.find("image/jpeg") != std::string::npos || ct.find("image/jpg") != std::string::npos)      
+        return ".jpg";
+    return ".bin";
+}
 
 Response ResponseHandler::handlePOST()
 {
     Response res;
 
-  
-    std::string filePath;
-    int i = 1;
-    while(1)
+    if (conf.client_max_body_size > 0 && req.body.size() > conf.client_max_body_size)
     {
-        filePath = req.redirect_target + "upload" + toString(i) + ".txt";
+        res.setStatus(413, "Payload Too Large");
+        res.setBody("<h1>413 Payload Too Large</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
+     std::string ext = ".txt"; 
 
-        std::ifstream f(filePath.c_str());
+
+    std::map<std::string, std::string>::const_iterator it =req.headers.find("Content-Type");
+
+    if (it != req.headers.end())
+        ext = getExtFromContentType(it->second);
+    std::string fileName;
+    int i = 1;
+    while(i < 100000)
+    {
+        fileName = req.redirect_target + "upload" + toString(i) + ext;
+
+        std::ifstream f(fileName.c_str());
         if (!f)
             break;
         i++;
 
     }
 
-    std::ofstream file(filePath.c_str());
+    std::ofstream file(fileName.c_str(), std::ios::binary);
 
     if (!file.is_open())
     {
@@ -307,8 +336,14 @@ Response ResponseHandler::handlePOST()
         return res;
     }
 
- 
-    file << req.body;
+    file.write(req.body.data(), req.body.size());
+    // file << req.body;
+    if (!file)
+    {
+        res.setStatus(500, "Internal Server Error");
+        res.setBody("<h1>500 Internal Server Error</h1>");
+        return res;
+    }
     file.close();
 
     res.setStatus(201, "Created");
@@ -319,35 +354,3 @@ Response ResponseHandler::handlePOST()
 }
 
 
-// Response ResponseHandler::handlePOST()
-// {
-//     Response res;
-
-//     // std::cout << "POST target: "
-//     //           << req.redirect_target
-//     //           << std::endl;
-
-//     // Build destination file path
-//     std::string filePath = req.redirect_target + "upload.txt";
-
-//     // Open file for writing
-//     std::ofstream file(filePath.c_str());
-
-//     if (!file.is_open())
-//     {
-//         res.setStatus(500, "Internal Server Error");
-//         res.setBody("<h1>500 Internal Server Error</h1>");
-//         res.setHeader("Content-Type", "text/html");
-//         return res;
-//     }
-
- 
-//     file << req.body;
-//     file.close();
-
-//     res.setStatus(201, "Created");
-//     res.setBody("<h1>Upload successful</h1>");
-//     res.setHeader("Content-Type", "text/html");
-
-//     return res;
-// }
