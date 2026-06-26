@@ -20,6 +20,7 @@ struct validat {
     int code;         // 1 .. 65535 ..... ex: 8080 port dial server
 };
 
+
 class HttpRequest {
 public:
     std::string method;
@@ -29,6 +30,18 @@ public:
     std::string body;
     std::map<std::string, std::string> query_params;
     std::string confurm_path;
+    
+    // ========== CGI MEMBERS ==========
+    bool is_cgi;
+    std::string cgi_script_path;                        // Full path to script
+    std::string cgi_extension;                          // ".py", ".sh", etc.
+    std::string cgi_interpreter;                        // "/usr/bin/python3"
+    std::string query_string;                           // Raw query string
+    std::map<std::string, std::string> cgi_env;         // Environment variables
+    // ================================
+
+
+
 
     int status; // set to 200, 404, 403, 405, 301...
     std::string redirect_target; // empty unless redirect
@@ -36,6 +49,11 @@ public:
     HttpRequest(const std::string& raw_request,const ServerConfig& serv);
     validat validate_request(const ServerConfig& serv);
     void reqq();
+
+    // ========== CGI METHODS ==========
+    bool detect_cgi_request(const ServerConfig& serv);
+    void setup_cgi_environment(const ServerConfig& serv);
+    // ================================
 };
 
 

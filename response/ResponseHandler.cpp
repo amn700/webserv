@@ -348,14 +348,58 @@ Response ResponseHandler::handle()
     return res;
 }
 
+// Response ResponseHandler::handlePOST()
+// {
+//     Response res;
+//     res.setStatus(201, "Created");
+//     res.setBody("<h1>POST Request Placeholder</h1>");
+//     res.setHeader("Content-Type", "text/html");
+//     return res;
+// }
+
+
+
+
 Response ResponseHandler::handlePOST()
 {
     Response res;
+
+  
+    std::string filePath;
+    int i = 1;
+    while(1)
+    {
+        filePath = req.confurm_path+ "/" + toString(i) + ".txt";
+
+        std::ifstream f(filePath.c_str());
+        if (!f)
+            break;
+        i++;
+
+    }
+
+    std::ofstream file(filePath.c_str());
+
+    if (!file.is_open())
+    {
+        res.setStatus(500, "Internal Server Error");
+        res.setBody("<h1>500 Internal Server Error</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
+
+ 
+    file << req.body;
+    file.close();
+
     res.setStatus(201, "Created");
-    res.setBody("<h1>POST Request Placeholder</h1>");
+    res.setBody("<h1>Upload successful</h1>");
     res.setHeader("Content-Type", "text/html");
+
     return res;
 }
+
+
 
 // Response ResponseHandler::handlePOST()
 // {
