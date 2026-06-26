@@ -318,6 +318,71 @@ bool WebServer::hasHeaderTerminator(const std::string& s)
     return s.find("\r\n\r\n") != std::string::npos || s.find("\n\n") != std::string::npos;
 }
 
+
+static bool headerContainsChunked(const std::string& headers)
+{
+    std::string lower = headers;
+    for (size_t i = 0; i < lower.size(); ++i)
+        lower[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(lower[i])));
+
+    const size_t pos = lower.find("transfer-encoding:");
+    if (pos == std::string::npos)
+        return false;
+
+    const size_t lineEnd = lower.find("\r\n", pos);
+    const std::string value = lower.substr(pos, lineEnd - pos);
+    return value.find("chunked") != std::string::npos;
+}
+
+static long getContentLength(const std::string& headers)
+{
+    std::string lower = headers;
+    for (size_t i = 0; i < lower.size(); ++i)
+        lower[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(lower[i])));
+
+    const size_t pos = lower.find("content-length:");
+    if (pos == std::string::npos)
+        return -1;
+
+    size_t valStart = pos + std::strlen("content-length:");
+    while (valStart < lower.size() && lower[valStart] == ' ')
+        ++valStart;
+
+    const size_t valEnd = lower.find("\r\n", valStart);
+    const std::string valStr = lower.substr(valStart, valEnd - valStart);
+
+    char* endPtr = NULL;
+    const long val = std::strtol(valStr.c_str(), &endPtr, 10);
+    if (endPtr == valStr.c_str())
+        return -1;
+    return val;
+}
+
+static bool isRequestComplete(const std::string& in)
+{
+    const size_t headerEnd = in.find("\r\n\r\n");
+    if (headerEnd == std::string::npos)
+        return false;
+
+    const size_t bodyStart = headerEnd + 4;
+    const std::string headers = in.substr(0, headerEnd);
+
+
+    if (headerContainsChunked(headers))
+    {
+
+        const size_t termPos = in.find("0\r\n\r\n", bodyStart);
+        return termPos != std::string::npos;
+    }
+
+    long contentLength = getContentLength(headers);
+
+    if (contentLength <= 0)
+        return true; 
+
+    const size_t bodyReceived = in.size() - bodyStart;
+    return bodyReceived >= static_cast<size_t>(contentLength);
+}
 bool WebServer::handleClientEvents(size_t clientPollIndex)
 {
     const int fd = _pollfds[clientPollIndex].fd;
@@ -353,20 +418,18 @@ bool WebServer::handleClientEvents(size_t clientPollIndex)
             return true;
         }
 
-        if (!st.responded && hasHeaderTerminator(st.in))
+        if (!st.responded && hasHeaderTerminator(st.in) && isRequestComplete(st.in))
         {
             try {
                 // std::cout << "Received request to server: " << st.serverIndex << " on fd: " << st.listenerFd << std::endl;
                 // std::cout << std::endl;
                 const std::string host = extractHostHeader(st.in);
                 const size_t idx = selectServerIndex(st.listenerFd, host);
-                HttpRequest req(st.in, _conf.servers[idx]);
-                // req.reqq();
-                // std::cout << std::endl;
 
-                // ResponseHandler handler(req, _conf.servers[st.serverIndex]);
-                //vhost selection
-                
+                std::cout << st.in << std::endl;
+
+                HttpRequest req(st.in, _conf.servers[idx]);
+
                 Response res = ResponseHandler(req, _conf.servers[idx]).handle();
                 // res.print();
                 // std::cout << std::endl;
