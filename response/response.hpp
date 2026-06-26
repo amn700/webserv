@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   response.hpp                                       :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mac <mac@student.42.fr>                    +#+  +:+       +#+        */
+/*   By: naessgui <naessgui@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/05/14 13:01:03 by naessgui          #+#    #+#             */
-/*   Updated: 2026/06/04 08:20:54 by mac              ###   ########.fr       */
+/*   Updated: 2026/05/23 22:50:57 by naessgui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -32,7 +32,6 @@ class Response
         void setBody(std::string content);
         void setHeader(std::string key, std::string value);
         std::string getBody() const;
-        void print() const;
         
         std::string buildResponse();
 };

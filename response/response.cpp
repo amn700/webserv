@@ -3,16 +3,14 @@
 /*                                                        :::      ::::::::   */
 /*   response.cpp                                       :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mac <mac@student.42.fr>                    +#+  +:+       +#+        */
+/*   By: naessgui <naessgui@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/05/14 13:02:04 by naessgui          #+#    #+#             */
-/*   Updated: 2026/06/04 08:20:54 by mac              ###   ########.fr       */
+/*   Updated: 2026/05/24 13:07:14 by naessgui         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "response.hpp"
-
-// std::string intToString(int v);
 
 Response::Response()
 {
@@ -38,40 +36,14 @@ std::string Response::getBody() const
     return body;
 }
 
-void Response::print() const
-{
-    std::cout << "===== HTTP RESPONSE =====" << std::endl;
-    std::cout << "HTTP/1.1 " << statusCode << " " << statusMessage << "\r\n";
-    for (std::map<std::string, std::string>::const_iterator it = headers.begin();
-        it != headers.end(); ++it)
-    {
-        std::cout << it->first << ": " << it->second << "\r\n";
-    }
-    std::cout << "Content-Length: " << body.size() << "\r\n";
-    std::cout << "\r\n";
-    std::cout << body << std::endl;
-    std::cout << "=========================" << std::endl;
-}
-
-#include <sstream>
-
-std::string intToString(int v)
-{
-    std::ostringstream oss;
-    oss << v;
-    return oss.str();
-}
-
-
-
 std::string Response::buildResponse()
 {
     std::string response;
 
-    headers["Content-Length"] = intToString(body.size());
+    headers["Content-Length"] = std::to_string(body.size());
 
     response += "HTTP/1.1 ";
-    response += intToString(statusCode);
+    response += std::to_string(statusCode);
     response += " ";
     response += statusMessage;
     response += "\r\n";
