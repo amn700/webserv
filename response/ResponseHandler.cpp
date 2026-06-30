@@ -82,10 +82,10 @@ Response ResponseHandler::handleReqErrors()
 {
     Response res;
 
-    if (req.status == 301 && !req.redirect_target.empty())
+    if (req.status == 301 && !req.confurm_path.empty())
     {
         res.setStatus(301, "Moved Permanently");
-        res.setHeader("Location", req.redirect_target);
+        res.setHeader("Location", req.confurm_path);
         res.setHeader("Content-Type", "text/html");
         res.setBody("<h1>301 Moved Permanently</h1>");
     }
@@ -196,7 +196,7 @@ Response ResponseHandler::handleGET(const std::string& path)
 Response ResponseHandler::handleDELETE()
 {
     Response res;
-    std::string path = req.redirect_target;
+    std::string path = req.confurm_path;
   
     if (std::remove(path.c_str()) != 0)
     {
@@ -264,7 +264,7 @@ Response ResponseHandler::handle()
         return handleReqErrors();
 
     if (req.method == "GET")
-        return handleGET(req.redirect_target);
+        return handleGET(req.confurm_path);
     
     else if (req.method == "DELETE")
         return handleDELETE();
@@ -281,31 +281,245 @@ Response ResponseHandler::handle()
 
 
 
+// Response ResponseHandler::handlePOST()
+// {
+//     Response res;
+
+//     // std::cout << "POST target: "
+//     //           << req.redirect_target
+//     //           << std::endl;
+
+//     std::string filePath = req.confurm_path + "upload.txt";
+
+//     std::ofstream file(filePath.c_str());
+
+//     if (!file.is_open())
+//     {
+//         res.setStatus(500, "Internal Server Error");
+//         res.setBody("<h1>500 Internal Server Error</h1>");
+//         res.setHeader("Content-Type", "text/html");
+//         return res;
+//     }
+ 
+//     file << req.body;
+//     file.close();
+
+//     res.setStatus(201, "Created");
+//     res.setBody("<h1>Upload successful</h1>");
+//     res.setHeader("Content-Type", "text/html");
+
+//     return res;
+// }
+
 Response ResponseHandler::handlePOST()
 {
     Response res;
 
-    // std::cout << "POST target: "
-    //           << req.redirect_target
-    //           << std::endl;
+    std::cout << "=== POST Handler ===\n";
+    std::cout << "confurm_path: '" << req.confurm_path << "'\n";
+    std::cout << "body size: " << req.body.size() << "\n";
 
-    std::string filePath = req.redirect_target + "upload.txt";
-
-    std::ofstream file(filePath.c_str());
-
-    if (!file.is_open())
+    // Check if it's multipart/form-data
+    std::map<std::string, std::string>::const_iterator content_type_it = req.headers.find("Content-Type");
+    
+    if (content_type_it == req.headers.end())
     {
-        res.setStatus(500, "Internal Server Error");
-        res.setBody("<h1>500 Internal Server Error</h1>");
+        res.setStatus(400, "Bad Request");
+        res.setBody("<h1>400 Bad Request - No Content-Type</h1>");
         res.setHeader("Content-Type", "text/html");
         return res;
     }
- 
-    file << req.body;
-    file.close();
+
+    std::string content_type = content_type_it->second;
+    
+    if (content_type.find("multipart/form-data") == std::string::npos)
+    {
+        // Simple form data - just save as is
+        std::string filePath = req.confurm_path + "upload.txt";
+        std::ofstream file(filePath.c_str());
+
+        if (!file.is_open())
+        {
+            res.setStatus(500, "Internal Server Error");
+            res.setBody("<h1>500 Internal Server Error</h1>");
+            res.setHeader("Content-Type", "text/html");
+            return res;
+        }
+
+        file << req.body;
+        file.close();
+
+        res.setStatus(201, "Created");
+        res.setBody("<h1>Upload successful</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
+
+    // Parse boundary
+    size_t boundary_pos = content_type.find("boundary=");
+    if (boundary_pos == std::string::npos)
+    {
+        res.setStatus(400, "Bad Request");
+        res.setBody("<h1>400 Bad Request - No boundary</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
+
+    std::string boundary = content_type.substr(boundary_pos + 9);
+    std::string delimiter = "--" + boundary;
+    std::string end_delimiter = "--" + boundary + "--";
+
+    std::cout << "Boundary: '" << boundary << "'\n";
+    std::cout << "Body size: " << req.body.size() << " bytes\n";
+
+    std::string body = req.body;
+    size_t pos = 0;
+    int file_count = 0;
+    int part_count = 0;
+
+    // Find first boundary
+    pos = body.find(delimiter);
+    if (pos == std::string::npos)
+    {
+        std::cout << "ERROR: First boundary not found\n";
+        res.setStatus(400, "Bad Request");
+        res.setBody("<h1>400 Bad Request - Boundary not found</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
+
+    pos += delimiter.length();
+
+    // Skip initial CRLF
+    if (pos < body.length() && body[pos] == '\r') pos++;
+    if (pos < body.length() && body[pos] == '\n') pos++;
+
+    // Process each part
+    while (pos < body.length())
+    {
+        part_count++;
+        
+        // Find next boundary
+        size_t next_boundary = body.find("\r\n" + delimiter, pos);
+        if (next_boundary == std::string::npos)
+            next_boundary = body.find("\n" + delimiter, pos);
+        
+        if (next_boundary == std::string::npos)
+            break;
+
+        // Extract this part (without the boundary marker)
+        std::string part = body.substr(pos, next_boundary - pos);
+
+        // Remove trailing CRLF before boundary
+        while (!part.empty() && (part.back() == '\r' || part.back() == '\n'))
+            part.pop_back();
+
+        std::cout << "\n--- Part " << part_count << " ---\n";
+        std::cout << "Part size: " << part.size() << " bytes\n";
+
+        // Find headers/body separator in this part (double CRLF or LF)
+        size_t header_end = part.find("\r\n\r\n");
+        size_t header_end_lf = part.find("\n\n");
+        
+        if (header_end == std::string::npos && header_end_lf == std::string::npos)
+        {
+            std::cout << "ERROR: No header separator found\n";
+            pos = next_boundary + 2 + delimiter.length();
+            if (pos < body.length() && body[pos] == '\r') pos++;
+            if (pos < body.length() && body[pos] == '\n') pos++;
+            continue;
+        }
+
+        if (header_end == std::string::npos)
+            header_end = header_end_lf;
+        else if (header_end_lf != std::string::npos && header_end_lf < header_end)
+            header_end = header_end_lf;
+
+        std::string part_headers = part.substr(0, header_end);
+        
+        // Determine how many chars to skip for separator
+        int skip = 4;  // \r\n\r\n
+        if (part[header_end] == '\n' && part[header_end + 1] == '\n')
+            skip = 2;  // \n\n
+        
+        std::string part_data = part.substr(header_end + skip);
+
+        std::cout << "Headers:\n" << part_headers << "\n";
+        std::cout << "Data size: " << part_data.size() << " bytes\n";
+
+        // Extract filename
+        size_t filename_pos = part_headers.find("filename=");
+        if (filename_pos != std::string::npos)
+        {
+            // Find the quoted filename
+            filename_pos = part_headers.find("\"", filename_pos);
+            if (filename_pos != std::string::npos)
+            {
+                filename_pos++;
+                size_t filename_end = part_headers.find("\"", filename_pos);
+                std::string filename = part_headers.substr(filename_pos, filename_end - filename_pos);
+
+                std::cout << "Filename: '" << filename << "'\n";
+
+                // Create full path
+                std::string filePath = req.confurm_path + filename;
+                std::cout << "Saving to: '" << filePath << "'\n";
+
+                // Write file in binary mode
+                std::ofstream file(filePath.c_str(), std::ios::binary);
+
+                if (!file.is_open())
+                {
+                    std::cout << "ERROR: Cannot open file for writing\n";
+                    res.setStatus(500, "Internal Server Error");
+                    res.setBody("<h1>500 Internal Server Error - Cannot write file</h1>");
+                    res.setHeader("Content-Type", "text/html");
+                    return res;
+                }
+
+                // Write the actual binary data
+                file.write(part_data.c_str(), part_data.size());
+                file.close();
+                file_count++;
+
+                std::cout << "File saved successfully (" << part_data.size() << " bytes)\n";
+            }
+        }
+        else
+        {
+            // Regular form field
+            size_t name_pos = part_headers.find("name=");
+            if (name_pos != std::string::npos)
+            {
+                name_pos = part_headers.find("\"", name_pos);
+                if (name_pos != std::string::npos)
+                {
+                    name_pos++;
+                    size_t name_end = part_headers.find("\"", name_pos);
+                    std::string name = part_headers.substr(name_pos, name_end - name_pos);
+
+                    std::cout << "Form field: '" << name << "' = '" << part_data << "'\n";
+                }
+            }
+        }
+
+        // Move to next part
+        pos = next_boundary + 2;  // Skip \r\n or \n
+        if (pos < body.length() && body[pos] == '\r') pos++;
+        if (pos < body.length() && body[pos] == '\n') pos++;
+        
+        pos += delimiter.length();  // Skip boundary
+        
+        // Skip CRLF after boundary
+        if (pos < body.length() && body[pos] == '\r') pos++;
+        if (pos < body.length() && body[pos] == '\n') pos++;
+    }
+
+    std::cout << "\nTotal parts parsed: " << part_count << "\n";
+    std::cout << "Files uploaded: " << file_count << "\n";
 
     res.setStatus(201, "Created");
-    res.setBody("<h1>Upload successful</h1>");
+    res.setBody("<h1>Upload successful! " + toString(file_count) + " file(s) uploaded</h1>");
     res.setHeader("Content-Type", "text/html");
 
     return res;

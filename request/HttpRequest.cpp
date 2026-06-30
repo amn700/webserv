@@ -1,5 +1,12 @@
 #include "HttpRequest.hpp"
 
+std::string intToString(int v)
+{
+    std::ostringstream oss;
+    oss << v;
+    return oss.str();
+}
+
 bool valid_request_line(const std::string& line) 
 {
     size_t firstSpace = line.find(' ');
@@ -279,14 +286,12 @@ void check_path_get(validat& requ, const std::string& fs_path, const ServerConfi
             requ.path = fs_path;
             return;
         }
-        std::cout<< "55" << fs_path <<std::endl;
         requ.code=403;
         requ.path="";
         return;
     }
     if (access(fs_path.c_str(), R_OK) != 0) {
         if (errno == EACCES || errno == EPERM) {
-            std::cout<< "66" << fs_path <<std::endl;
             requ.code=403;
             requ.path="";
             return;
@@ -448,6 +453,7 @@ validat HttpRequest::validate_request(const ServerConfig& serv)
 
 HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& serv)
 {
+    std::cout << "🐤🐤" << raw_request << "🐤🐤" << std::endl;
     const size_t MAX_BODY = serv.client_max_body_size;
     const size_t MAX_PATH = 2048;
 

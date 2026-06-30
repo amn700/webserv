@@ -371,7 +371,7 @@ bool WebServer::handleClientEvents(size_t clientPollIndex)
                 // res.print();
                 // std::cout << std::endl;
                 st.out = res.buildResponse();
-                std::cout << st.out << std::endl;
+                // std::cout << st.out << std::endl;
                 
 
             } catch (const std::exception& e) {
