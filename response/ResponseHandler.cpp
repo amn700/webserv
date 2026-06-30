@@ -346,8 +346,35 @@ Response ResponseHandler::handle()
 Response ResponseHandler::handlePOST()
 {
     Response res;
+
+    const std::string dir = req.redirect_target;
+    if (dir.empty())
+    {
+        res.setStatus(500, "Internal Server Error");
+        res.setBody("<h1>Upload target not configured</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
+
+    std::string filename = dir;
+    if (!filename.empty() && filename[filename.size() - 1] != '/')
+        filename += "/";
+    filename += "upload.txt";
+
+    std::ofstream file(filename.c_str(), std::ios::binary);
+    if (!file.is_open())
+    {
+        res.setStatus(500, "Internal Server Error");
+        res.setBody("<h1>500 Internal Server Error</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
+
+    file << req.body;
+    file.close();
+
     res.setStatus(201, "Created");
-    res.setBody("<h1>POST Request Placeholder</h1>");
+    res.setBody("<h1>File Uploaded Successfully</h1>");
     res.setHeader("Content-Type", "text/html");
     return res;
 }

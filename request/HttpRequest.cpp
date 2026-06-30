@@ -266,6 +266,58 @@ void check_path_get(validat& requ,
                        const ServerConfig::LocationConfig* loc,
                        const std::string& method)
 {
+    // -------------------------
+    // POST (upload-like behavior)
+    // -------------------------
+    if (method == "POST")
+    {
+        if (!loc || !loc->upload.enabled)
+        {
+            requ.code = 403;
+            requ.path = "";
+            return;
+        }
+
+        if (loc->upload.dir.empty())
+        {
+            requ.code = 500;
+            requ.path = "";
+            return;
+        }
+
+        struct stat upload_st;
+        if (stat(loc->upload.dir.c_str(), &upload_st) != 0)
+        {
+            if (errno == ENOENT || errno == ENOTDIR)
+                requ.code = 404;
+            else if (errno == EACCES || errno == EPERM)
+                requ.code = 403;
+            else
+                requ.code = 500;
+            requ.path = "";
+            return;
+        }
+
+        if (!S_ISDIR(upload_st.st_mode)) {
+            requ.code = 403;
+            requ.path = "";
+            return;
+        }
+
+        if (access(loc->upload.dir.c_str(), W_OK | X_OK) != 0) {
+            if (errno == EACCES || errno == EPERM)
+                requ.code = 403;
+            else
+                requ.code = 500;
+            requ.path = "";
+            return;
+        }
+
+        requ.code = 200;      // OK to proceed with upload handling
+        requ.path = loc->upload.dir;  // directory where upload handler should write
+        return;
+    }
+
     struct stat st;
 
     // First: does fs_path exist?
@@ -288,32 +340,6 @@ void check_path_get(validat& requ,
         }
         requ.code = 500;
         requ.path = "";
-        return;
-    }
-
-    // -------------------------
-    // POST (upload-like behavior)
-    // -------------------------
-    if (method == "POST")
-    {
-        // For uploads you typically POST to a directory endpoint like /upload/
-        // We accept POST only if it's a directory and writable.
-        if (!S_ISDIR(st.st_mode)) {
-            // You can choose 403 or 409 here. 403 is okay for your current style.
-            requ.code = 403;
-            requ.path = "";
-            return;
-        }
-
-        // Must be able to write into this directory
-        if (access(fs_path.c_str(), W_OK | X_OK) != 0) {
-            requ.code = 403;
-            requ.path = "";
-            return;
-        }
-
-        requ.code = 200;      // OK to proceed with upload handling
-        requ.path = fs_path;  // directory where upload handler should write
         return;
     }
 
@@ -449,7 +475,8 @@ validat HttpRequest::validate_request(const ServerConfig& serv)
 
 HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& serv)
 {
-    const size_t MAX_BODY = 1024 * 1024 * 5; // 5 MiB max body size (change if you want)
+    const size_t DEFAULT_MAX_BODY = 1024 * 1024 * 5;
+    const size_t MAX_BODY = serv.client_max_body_size ? serv.client_max_body_size : DEFAULT_MAX_BODY;
     const size_t MAX_PATH = 2048; // 2048 bytes max URI/path size
 
     try {

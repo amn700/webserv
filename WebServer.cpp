@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 
 #include <errno.h>
+#include <cstdlib>
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
@@ -20,47 +21,6 @@
 #include <cctype>
 #include <sstream>
 #include <stdexcept>
-
-// static std::string peerToString(int fd)
-// {
-//     sockaddr_storage ss;
-//     socklen_t slen = sizeof(ss);
-//     ::memset(&ss, 0, sizeof(ss));
-
-//     if (::getpeername(fd, (sockaddr*)&ss, &slen) != 0)
-//         return "<unknown>";
-
-//     char host[NI_MAXHOST];
-//     char serv[NI_MAXSERV];
-//     ::memset(host, 0, sizeof(host));
-//     ::memset(serv, 0, sizeof(serv));
-
-//     const int rc = ::getnameinfo((sockaddr*)&ss, slen,
-//                                  host, sizeof(host),
-//                                  serv, sizeof(serv),
-//                                  NI_NUMERICHOST | NI_NUMERICSERV);
-//     if (rc != 0)
-//         return "<unknown>";
-
-//     std::ostringstream out;
-//     out << host << ":" << serv;
-//     return out.str();
-// }
-
-
-// static std::string uintToStr(unsigned int n)
-// {
-//     if (n == 0)
-//         return "0";
-//     char buf[16];
-//     int i = 15;
-//     buf[i] = '\0';
-//     while (n > 0) {
-//         buf[--i] = '0' + (n % 10);
-//         n /= 10;
-//     }
-//     return std::string(buf + i);
-// }
 
 
 static std::string syscallError(const std::string& what)
@@ -140,12 +100,6 @@ size_t WebServer::selectServerIndex(int listenerFd, const std::string& hostHeade
     return it->second[0];
 }
 
-// static std::string listenKey(const std::string& host, int port)
-// {
-//     std::ostringstream ss;
-//     ss << host << ":" << port;
-//     return ss.str();
-// }
 
 void WebServer::setNonBlocking(int fd)
 {
@@ -159,41 +113,6 @@ void WebServer::setNonBlocking(int fd)
     if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
         throw std::runtime_error(syscallError("fcntl(F_SETFL)"));
 }
-
-
-// WebServer::WebServer(const Config& conf)
-//     : _conf(conf)
-// {
-//     std::map<std::string, int> keyToFd;
-
-//     for (size_t sidx = 0; sidx < conf.servers.size(); ++sidx)
-//     {
-//         const ServerConfig& sc = conf.servers[sidx];
-
-//         for (size_t lidx = 0; lidx < sc.listens.size(); ++lidx)
-//         {
-//             const ServerConfig::Listen& l = sc.listens[lidx];
-
-//             const std::string key = listenKey(l.host, l.port);
-            
-//             //did u find the key in the map meaning is this ip:port already listened on by another server block? or is it a new listener?
-//             std::map<std::string, int>::iterator it = keyToFd.find(key);
-//             if (it != keyToFd.end()) {//not sure about this condition and how to make vhosts work
-//                 _listenerToServerIndices[it->second].push_back(sidx);
-//                 continue;
-//             }
-
-//             Socket* s = new Socket(l.host, l.port);
-//             const int fd = s->get_fd();
-
-//             _listeners.push_back(s);
-//             setNonBlocking(fd);
-//             addListener(fd);
-//             keyToFd[key] = fd;
-//             _listenerToServerIndices[fd].push_back(sidx);
-//         }
-//     }
-// }
 
 
 WebServer::WebServer(const Config& conf)
@@ -352,7 +271,7 @@ static long getContentLength(const std::string& headers)
     const std::string valStr = lower.substr(valStart, valEnd - valStart);
 
     char* endPtr = NULL;
-    const long val = std::strtol(valStr.c_str(), &endPtr, 10);
+    const long val = strtol(valStr.c_str(), &endPtr, 10);
     if (endPtr == valStr.c_str())
         return -1;
     return val;
@@ -480,7 +399,6 @@ void WebServer::run()
         throw std::runtime_error("No listen sockets configured");
 
     while (true) {
-        // Refresh desired event masks (especially for clients that gained/emptied out buffers).
         for (size_t i = 0; i < _pollfds.size(); ++i) {
             const int fd = _pollfds[i].fd;
             _pollfds[i].revents = 0;
