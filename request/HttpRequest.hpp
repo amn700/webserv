@@ -30,9 +30,18 @@ public:
 
     int status; // set to 200, 404, 403, 405, 301...
     std::string redirect_target; // empty unless redirect
+    std::string confurm_path; // confirmed/resolved path
+    bool is_cgi;
+    std::string query_string;
+    std::string cgi_script_path;
+    std::string cgi_extension;
+    std::string cgi_interpreter;
+    std::map<std::string, std::string> cgi_env;
 
     HttpRequest(const std::string& raw_request,const ServerConfig& serv);
     validat validate_request(const ServerConfig& serv);
+    bool detect_cgi_request(const ServerConfig& serv);
+    void setup_cgi_environment(const ServerConfig& serv);
     void reqq();
 };
 

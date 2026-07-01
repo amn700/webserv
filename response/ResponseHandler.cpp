@@ -1,5 +1,3 @@
-
-
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
@@ -8,7 +6,7 @@
 /*   By: naessgui <naessgui@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/05/15 20:46:44 by naessgui          #+#    #+#             */
-/*   Updated: 2026/06/02 20:21:26 by naessgui         ###   ########.fr       */
+/*   Updated: 2026/06/30 00:00:00 by mac              ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,23 +16,20 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <cstdio>
+#include <cerrno>
 
-
-ResponseHandler::ResponseHandler(const HttpRequest& r, const ServerConfig& c) : req(r), conf(c)
+ResponseHandler::ResponseHandler(const HttpRequest& r, const ServerConfig& c)
+    : req(r), conf(c)
 {
-    
 }
 
 std::string toString(int n)
 {
-    std::stringstream ss; //Reads/writes from a string..
-
+    std::stringstream ss;
     ss << n;
-
-    return ss.str(); //converts the stream content into a real string.
+    return ss.str();
 }
-
-
 
 bool readFile(const std::string& path, std::string& content)
 {
@@ -49,35 +44,63 @@ bool readFile(const std::string& path, std::string& content)
     content = buffer.str();
     return true;
 }
+
 std::string getMimeType(const std::string& path)
 {
     size_t pos_dot = path.find_last_of('.');
-    
+
     if (pos_dot == std::string::npos)
-        return ("text/plain");
-        
+        return "text/plain";
+
     std::string ext = path.substr(pos_dot);
     if (ext == ".html" || ext == ".htm")
-        return ("text/html");
+        return "text/html";
     if (ext == ".css")
-        return ("text/css");
+        return "text/css";
     if (ext == ".js")
-        return ("application/javascript");
+        return "application/javascript";
     if (ext == ".png")
-        return ("image/png");
+        return "image/png";
     if (ext == ".jpg" || ext == ".jpeg")
-        return ("image/jpeg");
+        return "image/jpeg";
     if (ext == ".gif")
-        return ("image/gif");
+        return "image/gif";
     if (ext == ".txt")
         return "text/plain";
     if (ext == ".pdf")
         return "application/pdf";
     if (ext == ".json")
         return "application/json";
-            
-    return ("application/octet-stream");
+
+    return "application/octet-stream";
 }
+
+std::string getExtFromContentType(const std::string& ct)
+{
+    if (ct.find("text/plain") != std::string::npos ||
+        ct.find("application/x-www-form-urlencoded") != std::string::npos)
+        return ".txt";
+    if (ct.find("text/html") != std::string::npos)
+        return ".html";
+    if (ct.find("application/json") != std::string::npos)
+        return ".json";
+    if (ct.find("image/png") != std::string::npos)
+        return ".png";
+    if (ct.find("image/jpeg") != std::string::npos || ct.find("image/jpg") != std::string::npos)
+        return ".jpg";
+    return ".bin";
+}
+
+// Joins a directory and a filename, inserting exactly one '/' between them.
+static std::string joinPath(const std::string& dir, const std::string& name)
+{
+    if (dir.empty())
+        return name;
+    if (dir[dir.size() - 1] == '/')
+        return dir + name;
+    return dir + "/" + name;
+}
+
 Response ResponseHandler::handleReqErrors()
 {
     Response res;
@@ -114,6 +137,11 @@ Response ResponseHandler::handleReqErrors()
         res.setStatus(411, "Length Required");
         res.setBody("<h1>411 Length Required</h1>");
     }
+    else if (req.status == 413)
+    {
+        res.setStatus(413, "Payload Too Large");
+        res.setBody("<h1>413 Payload Too Large</h1>");
+    }
     else if (req.status == 414)
     {
         res.setStatus(414, "URI Too Long");
@@ -124,62 +152,36 @@ Response ResponseHandler::handleReqErrors()
         res.setStatus(501, "Not Implemented");
         res.setBody("<h1>501 Not Implemented</h1>");
     }
-    else if (req.status == 413)
+    else if (req.status == 508)
     {
-        res.setStatus(413, "Payload Too Large");
-        res.setBody("<h1>413 Payload Too Large</h1>");
+        res.setStatus(508, "Loop Detected");
+        res.setBody("<h1>508 Loop Detected</h1>");
     }
-    else if (req.status == 500)
+    else
     {
         res.setStatus(500, "Internal Server Error");
         res.setBody("<h1>500 Internal Server Error</h1>");
     }
 
-    std::map<int, std::string>::const_iterator it; 
+    res.setHeader("Content-Type", "text/html");
 
-    it = conf.error_pages.find(req.status);
-
+    std::map<int, std::string>::const_iterator it = conf.error_pages.find(req.status);
     if (it != conf.error_pages.end())
     {
         std::string content;
-
         if (readFile(it->second, content))
         {
             res.setBody(content);
             res.setHeader("Content-Type", getMimeType(it->second));
         }
-        // std::string content = readFile(it->second);
+    }
 
-        //     if (!content.empty())
-        //     {
-        //         res.setBody(content);
-        //         res.setHeader("Content-Type", getMimeType(it->second));
-        //     }
-    }
-    else 
-    {
-        res.setHeader("Content-Type", "text/html");
-    }
     return res;
 }
-
 
 Response ResponseHandler::handleGET(const std::string& path)
 {
     Response res;
-    // struct stat st;
-   
-    // if (stat(path.c_str(), &st) != 0)
-    // {
-    //     res.setStatus(404, "Not Found");
-    //     res.setBody("<h1>404 Not Found</h1>");
-    //     res.setHeader("Content-Type", "text/html");
-    //     return res;
-    // }
-    // if (S_ISDIR(st.st_mode)) //check if directory
-    // {
-        
-    // }
     std::string content;
 
     if (!readFile(path, content))
@@ -197,37 +199,36 @@ Response ResponseHandler::handleGET(const std::string& path)
     return res;
 }
 
-
-
 Response ResponseHandler::handleDELETE()
 {
     Response res;
-    std::string path = req.redirect_target;//req.validation.path;
-    // struct stat st;
+    const std::string& path = req.confurm_path;
+    struct stat st;
 
-    // if (stat(path.c_str(), &st) != 0)
-    // {
-    //     res.setStatus(404, "Not Found");
-    //     res.setBody("<h1>404 Not Found</h1>");
-    //     res.setHeader("Content-Type", "text/html");
-    //     return res;
-    // }
+    if (path.empty() || stat(path.c_str(), &st) != 0)
+    {
+        res.setStatus(404, "Not Found");
+        res.setBody("<h1>404 Not Found</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
 
-    // if (S_ISDIR(st.st_mode))
-    // {
-    //     res.setStatus(403, "Forbidden");
-    //     res.setBody("<h1>403 Forbidden (Directory)</h1>");
-    //     res.setHeader("Content-Type", "text/html");
-    //     return res;
-    // }
+    if (S_ISDIR(st.st_mode))
+    {
+        res.setStatus(403, "Forbidden");
+        res.setBody("<h1>403 Forbidden (Directory)</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
 
-    // if (access(path.c_str(), W_OK) != 0)
-    // {
-    //     res.setStatus(403, "Forbidden");
-    //     res.setBody("<h1>403 Forbidden (No permission)</h1>");
-    //     res.setHeader("Content-Type", "text/html");
-    //     return res;
-    // }
+    if (access(path.c_str(), W_OK) != 0)
+    {
+        res.setStatus(403, "Forbidden");
+        res.setBody("<h1>403 Forbidden (No permission)</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
+
     if (std::remove(path.c_str()) != 0)
     {
         res.setStatus(500, "Internal Server Error");
@@ -243,41 +244,94 @@ Response ResponseHandler::handleDELETE()
     return res;
 }
 
+Response ResponseHandler::handlePOST()
+{
+    Response res;
 
-// Response ResponseHandler::handlePOST(const std::string& path)
-// {
-//     Response res;
+    if (conf.client_max_body_size > 0 && req.body.size() > conf.client_max_body_size)
+    {
+        res.setStatus(413, "Payload Too Large");
+        res.setBody("<h1>413 Payload Too Large</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
 
-//     std::string filename = path + "/upload.txt";
+    const std::string& dir = req.confurm_path;
+    if (dir.empty())
+    {
+        res.setStatus(500, "Internal Server Error");
+        res.setBody("<h1>Upload target not configured</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
 
-//     std::ofstream file(filename.c_str());
+    struct stat dir_st;
+    if (stat(dir.c_str(), &dir_st) != 0 || !S_ISDIR(dir_st.st_mode))
+    {
+        res.setStatus(500, "Internal Server Error");
+        res.setBody("<h1>Upload directory does not exist</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
 
-//     if (!file.is_open())
-//     {
-//         res.setStatus(500, "Internal Server Error");
-//         res.setBody("<h1>500 Internal Server Error</h1>");
-//         res.setHeader("Content-Type", "text/html");
-//         return res;
-//     }
+    std::string ext = ".txt";
+    std::map<std::string, std::string>::const_iterator it = req.headers.find("Content-Type");
+    if (it != req.headers.end())
+        ext = getExtFromContentType(it->second);
 
-//     file << req.body;
-//     file.close();
+    // Find a free "uploadN.ext" name so concurrent/repeat uploads don't
+    // clobber each other.
+    std::string fileName;
+    int i = 1;
+    const int maxAttempts = 100000;
+    while (i < maxAttempts)
+    {
+        fileName = joinPath(dir, "upload" + toString(i) + ext);
+        struct stat exist_st;
+        if (stat(fileName.c_str(), &exist_st) != 0 && errno == ENOENT)
+            break;
+        i++;
+    }
 
-//     res.setStatus(201, "Created");
-//     res.setBody("<h1>File Uploaded Successfully</h1>");
-//     res.setHeader("Content-Type", "text/html");
+    if (i >= maxAttempts)
+    {
+        res.setStatus(500, "Internal Server Error");
+        res.setBody("<h1>500 Could not allocate upload filename</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
 
-//     return res;
-// }
+    std::ofstream file(fileName.c_str(), std::ios::binary);
+    if (!file.is_open())
+    {
+        res.setStatus(500, "Internal Server Error");
+        res.setBody("<h1>500 Internal Server Error</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
 
+    file.write(req.body.data(), static_cast<std::streamsize>(req.body.size()));
+    if (!file)
+    {
+        res.setStatus(500, "Internal Server Error");
+        res.setBody("<h1>500 Internal Server Error</h1>");
+        res.setHeader("Content-Type", "text/html");
+        return res;
+    }
+    file.close();
 
+    res.setStatus(201, "Created");
+    res.setBody("<h1>Upload successful</h1>");
+    res.setHeader("Content-Type", "text/html");
 
-
+    return res;
+}
 
 Response ResponseHandler::handleAutoIndex(const std::string& path)
 {
     Response res;
     DIR* dir = opendir(path.c_str());
+
     if (!dir)
     {
         res.setStatus(500, "Internal Server Error");
@@ -296,7 +350,6 @@ Response ResponseHandler::handleAutoIndex(const std::string& path)
     {
         std::string name = entry->d_name;
 
-        // skip current and parent directory
         if (name == "." || name == "..")
             continue;
 
@@ -315,117 +368,25 @@ Response ResponseHandler::handleAutoIndex(const std::string& path)
     return res;
 }
 
-
-
-
-
 Response ResponseHandler::handle()
 {
-    
     if (req.status == 1001)
-        return handleAutoIndex(req.redirect_target);
+        return handleAutoIndex(req.confurm_path);
+
     if (req.status != 200)
         return handleReqErrors();
 
     if (req.method == "GET")
-        return handleGET(req.redirect_target);
-    
+        return handleGET(req.confurm_path);
     else if (req.method == "DELETE")
         return handleDELETE();
     else if (req.method == "POST")
         return handlePOST();
-    Response res;
 
+    Response res;
     res.setStatus(405, "Method Not Allowed");
     res.setBody("<h1>405 Method Not Allowed</h1>");
     res.setHeader("Content-Type", "text/html");
 
     return res;
 }
-
-Response ResponseHandler::handlePOST()
-{
-    Response res;
-
-    const std::string dir = req.redirect_target;
-    if (dir.empty())
-    {
-        res.setStatus(500, "Internal Server Error");
-        res.setBody("<h1>Upload target not configured</h1>");
-        res.setHeader("Content-Type", "text/html");
-        return res;
-    }
-
-    std::string filename = dir;
-    if (!filename.empty() && filename[filename.size() - 1] != '/')
-        filename += "/";
-    filename += "upload.txt";
-
-    std::ofstream file(filename.c_str(), std::ios::binary);
-    if (!file.is_open())
-    {
-        res.setStatus(500, "Internal Server Error");
-        res.setBody("<h1>500 Internal Server Error</h1>");
-        res.setHeader("Content-Type", "text/html");
-        return res;
-    }
-
-    file << req.body;
-    file.close();
-
-    res.setStatus(201, "Created");
-    res.setBody("<h1>File Uploaded Successfully</h1>");
-    res.setHeader("Content-Type", "text/html");
-    return res;
-}
-
-// Response ResponseHandler::handlePOST()
-// {
-//     const LocationConfig* loc = best_match_location(req.path, conf);
-
-//     Response res;
-
-//     if (!loc || !loc->upload.enabled)
-//     {
-//         res.setStatus(403, "Forbidden");
-//         res.setBody("<h1>403 Forbidden</h1>");
-//         res.setHeader("Content-Type", "text/html");
-//         return res;
-//     }
-//     if (loc->upload.dir.empty())
-//     {
-//         res.setStatus(500, "Internal Server Error");
-//         res.setBody("<h1>Upload directory not configured</h1>");
-//         res.setHeader("Content-Type", "text/html");
-//         return res;
-//     }
-//     std::string filename = loc->upload.dir + "/upload.txt";
-//     struct stat st;
-
-//     if (stat(loc->upload.dir.c_str(), &st) != 0)
-//     {
-//         res.setStatus(500, "Internal Server Error");
-//         res.setBody("<h1>Upload directory does not exist</h1>");
-//         res.setHeader("Content-Type", "text/html");
-//         return res;
-//     }
-
-//     std::ofstream file(filename.c_str());
-
-//     if (!file.is_open())
-//     {
-//         res.setStatus(500, "Internal Server Error");
-//         res.setBody("<h1>500 Internal Server Error</h1>");
-//         res.setHeader("Content-Type", "text/html");
-//         return res;
-//     }
-
-//     file << req.body;
-//     file.close();
-
-//     res.setStatus(201, "Created");
-//     res.setBody("<h1>File Uploaded Successfully</h1>");
-//     res.setHeader("Content-Type", "text/html");
-
-//     return res;
-// }

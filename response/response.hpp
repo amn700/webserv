@@ -5,36 +5,44 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: mac <mac@student.42.fr>                    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/05/14 13:01:03 by naessgui          #+#    #+#             */
-/*   Updated: 2026/06/04 08:20:54 by mac              ###   ########.fr       */
+/*   Created: 2026/06/30 00:00:00 by mac               #+#    #+#             */
+/*   Updated: 2026/06/30 00:00:00 by mac              ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #ifndef RESPONSE_HPP
-#define RESPONSE_HPP
+# define RESPONSE_HPP
 
 #include <string>
 #include <map>
 #include <iostream>
 
+// Converts an int to a std::string without C++11 std::to_string.
+std::string intToString(int v);
 
 class Response
 {
-     private:
-        int statusCode;
-        std::string statusMessage;
-        std::string body;
-        std::map<std::string, std::string> headers;
-        
     public:
         Response();
-        void setStatus(int statusCode , std::string statusMessage);
+
+        void setStatus(int code, std::string message);
         void setBody(std::string content);
         void setHeader(std::string key, std::string value);
+
         std::string getBody() const;
-        void print() const;
-        
+        int getStatusCode() const;
+
+        // Builds the raw HTTP/1.1 response string (status line + headers + body).
         std::string buildResponse();
+
+        // Debug helper: prints the response to stdout.
+        void print() const;
+
+    private:
+        int                                statusCode;
+        std::string                        statusMessage;
+        std::string                        body;
+        std::map<std::string, std::string> headers;
 };
 
 #endif

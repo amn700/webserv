@@ -1,7 +1,12 @@
 #include "HttpRequest.hpp"
+#include "../response/response.hpp"
+#include <algorithm>
 
+// ============================================================
+// Free helper functions
+// ============================================================
 
-bool valid_request_line(const std::string& line) 
+bool valid_request_line(const std::string& line)
 {
     size_t firstSpace = line.find(' ');
     if (firstSpace == std::string::npos)
@@ -11,13 +16,15 @@ bool valid_request_line(const std::string& line)
         return false;
     if (line.find(' ', secondSpace + 1) != std::string::npos)
         return false;
+
     std::string method = line.substr(0, firstSpace);
-    // Note: method validation is done in parse_method, but this can also catch "OPTIONS ..." as invalid
     if (!(method == "GET" || method == "POST" || method == "DELETE"))
-        throw std::logic_error("501");
+        throw std::logic_error("501"); // distinguishes "not implemented" from generic 400
+
     std::string version = line.substr(secondSpace + 1);
-    if (version.substr(0,5) != "HTTP/")
+    if (version.substr(0, 5) != "HTTP/")
         return false;
+
     return true;
 }
 
@@ -27,45 +34,25 @@ std::string parse_method(const std::string& str)
     std::string firstWord = str.substr(0, spacePos);
     if (firstWord == "GET" || firstWord == "POST" || firstWord == "DELETE")
         return firstWord;
-    throw std::logic_error("501"); //this must not be throw  // throw a logic_error to distinguish from 400
+    throw std::logic_error("501");
 }
 
-std::string parse_version(const std::string& str) 
+std::string parse_version(const std::string& str)
 {
     size_t lastSpace = str.find_last_of(' ');
-    std::string lastWord = str.substr(lastSpace + 1);
-    return lastWord;
+    return str.substr(lastSpace + 1);
 }
 
-std::string pars_body(const std::vector<std::string>& lines) {
-    unsigned int i;
-    for (i = 1; i < lines.size(); i++) {
-        if (lines[i].find_first_not_of(" \t\n\r\f\v") == std::string::npos)
-            break;
-    }
-    i += 1;
-    if (i == lines.size())
-        return "";
-    std::string ret;
-    while (i < lines.size()) {
-        ret += lines[i];
-        if (i != lines.size() - 1)
-            ret += "\n";
-        i++;
-    }
-    return ret;
-}
-
-std::string parse_path(const std::string& str) {
+std::string parse_path(const std::string& str)
+{
     size_t firstSpace = str.find(' ');
     size_t secondSpace = str.find(' ', firstSpace + 1);
     std::string secondWord = str.substr(firstSpace + 1, secondSpace - firstSpace - 1);
-    if (secondWord.find('?') != std::string::npos) {
-        size_t firstSepert = secondWord.find('?');
-        return secondWord.substr(0, firstSepert);
-    } else {
-        return secondWord;
-    }
+
+    size_t qmark = secondWord.find('?');
+    if (qmark != std::string::npos)
+        return secondWord.substr(0, qmark);
+    return secondWord;
 }
 
 std::string trim_str(const std::string& str)
@@ -95,7 +82,29 @@ std::map<std::string, std::string> pars_heders(const std::vector<std::string>& l
     return ret;
 }
 
-std::vector<std::string> split(const std::string& str, char delimiter) {
+std::string pars_body(const std::vector<std::string>& lines)
+{
+    unsigned int i;
+    for (i = 1; i < lines.size(); i++) {
+        if (lines[i].find_first_not_of(" \t\n\r\f\v") == std::string::npos)
+            break;
+    }
+    i += 1;
+    if (i == lines.size())
+        return "";
+
+    std::string ret;
+    while (i < lines.size()) {
+        ret += lines[i];
+        if (i != lines.size() - 1)
+            ret += "\n";
+        i++;
+    }
+    return ret;
+}
+
+std::vector<std::string> split(const std::string& str, char delimiter)
+{
     std::vector<std::string> result;
     std::stringstream ss(str);
     std::string token;
@@ -104,26 +113,28 @@ std::vector<std::string> split(const std::string& str, char delimiter) {
     return result;
 }
 
-std::map<std::string, std::string> pars_query(const std::string& str) {
+std::map<std::string, std::string> pars_query(const std::string& str)
+{
     std::map<std::string, std::string> ret;
     size_t qmark = str.find('?');
-    if(qmark == std::string::npos)
+    if (qmark == std::string::npos)
         return ret;
+
     size_t spacePos = str.find(' ', qmark);
     std::string theword = (spacePos == std::string::npos)
         ? str.substr(qmark + 1)
         : str.substr(qmark + 1, spacePos - qmark - 1);
-    std::vector<std::string> result = split(theword , '&');
-    for(unsigned int i = 0; i < result.size();i++) {
-        size_t colon_pos = result[i].find('=');
-        std::string key;
-        std::string value;
-        if(colon_pos == std::string::npos) {
-            key = result[i];
+
+    std::vector<std::string> pairs = split(theword, '&');
+    for (unsigned int i = 0; i < pairs.size(); i++) {
+        size_t eq_pos = pairs[i].find('=');
+        std::string key, value;
+        if (eq_pos == std::string::npos) {
+            key = pairs[i];
             value = "";
         } else {
-            key = result[i].substr(0, colon_pos);
-            value = result[i].substr(colon_pos + 1);
+            key = pairs[i].substr(0, eq_pos);
+            value = pairs[i].substr(eq_pos + 1);
         }
         ret.insert(std::make_pair(key, value));
     }
@@ -136,11 +147,9 @@ const ServerConfig::LocationConfig* best_match_location(const std::string& path,
     size_t bestLen = 0;
     for (size_t i = 0; i < serv.locations.size(); ++i) {
         const std::string& prefix = serv.locations[i].prefix;
-        if (path.rfind(prefix, 0) == 0) {
-            if (prefix.size() > bestLen) {
-                bestLen = prefix.size();
-                best = &serv.locations[i];
-            }
+        if (path.rfind(prefix, 0) == 0 && prefix.size() > bestLen) {
+            bestLen = prefix.size();
+            best = &serv.locations[i];
         }
     }
     return best;
@@ -148,7 +157,6 @@ const ServerConfig::LocationConfig* best_match_location(const std::string& path,
 
 std::string toLower(const std::string& str)
 {
-// #include "response/ResponseHandler.hp
     std::string result = str;
     for (size_t i = 0; i < result.size(); ++i)
         result[i] = std::tolower(result[i]);
@@ -162,132 +170,57 @@ bool method_allowed(const std::string& method, const ServerConfig::LocationConfi
     return loc->methods.count(toLower(method)) != 0;
 }
 
-// void check_path_get(validat& requ, const std::string& fs_path, const ServerConfig::LocationConfig* loc)
-// {
-//     struct stat st;
-//     std::string check_path = fs_path;
+// Strip a location's prefix from a path and guarantee a leading '/'.
+// Only strips when the location defines a custom root and is not the "/" location,
+// matching the original root-mapping semantics.
+static std::string strip_location_prefix(const std::string& path,
+                                          const ServerConfig::LocationConfig* loc)
+{
+    std::string path_to_use = path;
 
-//     // If path is "/" (or equivalent), search for index files in the root
-//     // if (fs_path == "/" || fs_path.empty())
-//     // {
-        
-//     //     if (!loc || loc->index.empty())
-//     //     {
-//     //         requ.code = 403;
-//     //         requ.path = "";
-//     //         return;
-//     //     }
-//     //     for (size_t i = 0; i < loc->index.size(); ++i)
-//     //     {
-//     //         std::string index_path = loc->root + loc->index[i]; // Ensure loc->root ends without slash
-//     //         struct stat index_st;
-//     //         if (stat(index_path.c_str(), &index_st) == 0 && S_ISREG(index_st.st_mode) && access(index_path.c_str(), R_OK) == 0)
-//     //         {
-                
-//     //             requ.code = 200;
-//     //             requ.path = index_path;
-//     //             return;
-//     //         }
-//     //     }
-//     //     // No index file found, check autoindex
-//     //     if (loc->autoindex) 
-//     //     {
-//     //         requ.code = 1001; // autoindex listing
-//     //         requ.path = loc->root; // The directory to list
-//     //         return;
-//     //     }
-//     //     else 
-//     //     {
-//     //         requ.code = 403;
-//     //         requ.path = "";
-//     //         return;
-//     //     }
-//     // }
+    if (loc && !loc->root.empty() && loc->prefix != "/") {
+        if (path_to_use.find(loc->prefix) == 0)
+            path_to_use = path_to_use.substr(loc->prefix.length() - 1);
+    }
 
-//     // Original code (unchanged) follows for all other paths
-//     if (stat(fs_path.c_str(), &st) != 0) 
-//     {
-//         if (errno == ENOENT || errno == ENOTDIR) {
-//             requ.code=404;
-//             requ.path="";
-//             return;
-//         }
-//         if (errno == EACCES || errno == EPERM) {
-//             requ.code=403;
-//             requ.path="";
-//             return;
-//         }
-//         requ.code=500;
-//         requ.path="";
-//         return;
-//     }
-//     if (S_ISDIR(st.st_mode)) 
-//     {
-//         // Check for index file in this directory
-//         for (size_t i = 0; loc && i < loc->index.size(); i++) {
-//             std::string index_path = fs_path + loc->index[i];
-//             struct stat index_st;
-//             if (stat(index_path.c_str(), &index_st) == 0 && S_ISREG(index_st.st_mode) && access(index_path.c_str(), R_OK) == 0)
-//             {
-//             //    std::cout<<"this---"<<fs_path  <<std::endl;
-//             //    std::cout<<"that---"<< loc->index[i]<<std::endl;
-//                 requ.code = 200;
-//                 requ.path = index_path;
-//                 return;
-//             }
-//         }
-//         if (loc && loc->autoindex) {
-//             requ.code = 1001;
-//             requ.path = fs_path;
-//             return;
-//         }
-//         requ.code=403;
-//         requ.path="";
-//         return;
-//     }
-//     if (access(fs_path.c_str(), R_OK) != 0) {
-//         if (errno == EACCES || errno == EPERM) {
-//             requ.code=403;
-//             requ.path="";
-//             return;
-//         }
-//         requ.code=500;
-//         requ.path="";
-//         return;
-//     }
-//     requ.code=200;
-//     requ.path=fs_path;
-//     return;
-// }
+    if (!path_to_use.empty() && path_to_use[0] != '/')
+        path_to_use = "/" + path_to_use;
 
-// Replace check_path_get with a generic checker (keep the old name if you want)
-void check_path_get(validat& requ,
-                       const std::string& fs_path,
-                       const ServerConfig::LocationConfig* loc,
-                       const std::string& method)
+    return path_to_use;
+}
+
+static std::string strip_trailing_slash(std::string s)
+{
+    if (!s.empty() && s[s.size() - 1] == '/')
+        s = s.substr(0, s.size() - 1);
+    return s;
+}
+
+// ============================================================
+// Filesystem-level checks per method (GET / POST upload / DELETE)
+// ============================================================
+
+void check_path_get(validat& requ, const std::string& fs_path,
+                     const ServerConfig::LocationConfig* loc, const std::string& method)
 {
     // -------------------------
     // POST (upload-like behavior)
     // -------------------------
     if (method == "POST")
     {
-        if (!loc || !loc->upload.enabled)
-        {
+        if (!loc || !loc->upload.enabled) {
             requ.code = 403;
             requ.path = "";
             return;
         }
-
-        if (loc->upload.dir.empty())
-        {
+        if (loc->upload.dir.empty()) {
             requ.code = 500;
             requ.path = "";
             return;
         }
 
         struct stat upload_st;
-        if (stat(loc->upload.dir.c_str(), &upload_st) != 0)
-        {
+        if (stat(loc->upload.dir.c_str(), &upload_st) != 0) {
             if (errno == ENOENT || errno == ENOTDIR)
                 requ.code = 404;
             else if (errno == EACCES || errno == EPERM)
@@ -305,40 +238,27 @@ void check_path_get(validat& requ,
         }
 
         if (access(loc->upload.dir.c_str(), W_OK | X_OK) != 0) {
-            if (errno == EACCES || errno == EPERM)
-                requ.code = 403;
-            else
-                requ.code = 500;
+            requ.code = (errno == EACCES || errno == EPERM) ? 403 : 500;
             requ.path = "";
             return;
         }
 
-        requ.code = 200;      // OK to proceed with upload handling
-        requ.path = loc->upload.dir;  // directory where upload handler should write
+        requ.code = 200;
+        requ.path = loc->upload.dir; // directory where the upload handler should write
         return;
     }
 
     struct stat st;
 
-    // First: does fs_path exist?
-    if (stat(fs_path.c_str(), &st) != 0)
-    {
-        if (errno == ENOENT || errno == ENOTDIR) {
+    if (stat(fs_path.c_str(), &st) != 0) {
+        if (errno == ENOENT || errno == ENOTDIR)
             requ.code = 404;
-            requ.path = "";
-            return;
-        }
-        if (errno == ENAMETOOLONG) {
+        else if (errno == ENAMETOOLONG)
             requ.code = 414;
-            requ.path = "";
-            return;
-        }
-        if (errno == EACCES || errno == EPERM) {
+        else if (errno == EACCES || errno == EPERM)
             requ.code = 403;
-            requ.path = "";
-            return;
-        }
-        requ.code = 500;
+        else
+            requ.code = 500;
         requ.path = "";
         return;
     }
@@ -348,57 +268,32 @@ void check_path_get(validat& requ,
     // -------------------------
     if (method == "DELETE")
     {
-        // For simplicity:
-        // - forbid deleting directories (unless you want to support it)
         if (S_ISDIR(st.st_mode)) {
-            requ.code = 403;
+            requ.code = 403; // deleting directories not supported
             requ.path = "";
             return;
         }
-
-        // Check we can modify/remove. (Real POSIX delete checks parent dir W/X,
-        // but this is a decent basic check for a school project.)
         if (access(fs_path.c_str(), W_OK) != 0) {
             requ.code = 403;
             requ.path = "";
             return;
         }
-
-        requ.code = 200;     // deletable
-        requ.path = fs_path; // file to delete
+        requ.code = 200;
+        requ.path = fs_path;
         return;
     }
 
     // -------------------------
-    // GET (your existing behavior)
+    // GET
     // -------------------------
-
-
-    // Original code (unchanged) follows for all other paths
-    if (stat(fs_path.c_str(), &st) != 0) 
+    if (S_ISDIR(st.st_mode))
     {
-        if (errno == ENOENT || errno == ENOTDIR) {
-            requ.code=404;
-            requ.path="";
-            return;
-        }
-        if (errno == EACCES || errno == EPERM) {
-            requ.code=403;
-            requ.path="";
-            return;
-        }
-        requ.code=500;
-        requ.path="";
-        return;
-    }
-    if (S_ISDIR(st.st_mode)) 
-    {
-        // Check for index file in this directory
-        for (size_t i = 0; loc && i < loc->index.size(); i++)
-        {
+        for (size_t i = 0; loc && i < loc->index.size(); i++) {
             std::string index_path = fs_path + loc->index[i];
             struct stat index_st;
-            if (stat(index_path.c_str(), &index_st) == 0 && S_ISREG(index_st.st_mode) && access(index_path.c_str(), R_OK) == 0)
+            if (stat(index_path.c_str(), &index_st) == 0 &&
+                S_ISREG(index_st.st_mode) &&
+                access(index_path.c_str(), R_OK) == 0)
             {
                 requ.code = 200;
                 requ.path = index_path;
@@ -406,78 +301,127 @@ void check_path_get(validat& requ,
             }
         }
         if (loc && loc->autoindex) {
-            requ.code = 1001;
+            requ.code = 1001; // directory listing
             requ.path = fs_path;
             return;
         }
-        requ.code=403;
-        requ.path="";
+        requ.code = 403;
+        requ.path = "";
         return;
     }
+
     if (access(fs_path.c_str(), R_OK) != 0) {
-        if (errno == EACCES || errno == EPERM) {
-            requ.code=403;
-            requ.path="";
-            return;
-        }
-        requ.code=500;
-        requ.path="";
+        requ.code = (errno == EACCES || errno == EPERM) ? 403 : 500;
+        requ.path = "";
         return;
     }
-    requ.code=200;
-    requ.path=fs_path;
-    return;
-    
 
-    // Regular file GET: must be readable
-    // if (access(fs_path.c_str(), R_OK) != 0) {
-    //     if (errno == EACCES || errno == EPERM) {
-    //         requ.code = 403;
-    //         requ.path = "";
-    //         return;
-    //     }
-    //     requ.code = 500;
-    //     requ.path = "";
-    //     return;
-    // }
-
-    // requ.code = 200;
-    // requ.path = fs_path;
+    requ.code = 200;
+    requ.path = fs_path;
 }
+
+// ============================================================
+// HttpRequest member functions
+// ============================================================
 
 validat HttpRequest::validate_request(const ServerConfig& serv)
 {
-    const ServerConfig::LocationConfig* loc = best_match_location(this->path, serv);
+    std::string current_path = this->path;
+    const ServerConfig::LocationConfig* loc = best_match_location(current_path, serv);
     validat requ;
-    if (loc && loc->redirect.enabled) {
-        this->redirect_target = loc->redirect.target;
-        requ.path = "";
+
+    // --- Follow redirects (with loop guard) ---
+    if (loc && loc->redirect.enabled)
+    {
         requ.code = loc->redirect.code;
+        int redirects_followed = 0;
+        int max_redirects = static_cast<int>(serv.locations.size());
+
+        while (loc && loc->redirect.enabled && redirects_followed < max_redirects) {
+            current_path = loc->redirect.target;
+            redirects_followed++;
+            loc = best_match_location(current_path, serv);
+        }
+
+        if (redirects_followed >= max_redirects) {
+            requ.code = 508; // loop detected
+            requ.path = "";
+            return requ;
+        }
+
+        std::string root = serv.root;
+        if (loc && !loc->root.empty())
+            root = loc->root;
+        root = strip_trailing_slash(root);
+
+        std::string path_to_use = strip_location_prefix(current_path, loc);
+        std::string fs_path = root + path_to_use;
+
+        struct stat st;
+        if (stat(fs_path.c_str(), &st) == 0 && S_ISDIR(st.st_mode) && loc && !loc->index.empty())
+        {
+            for (size_t i = 0; i < loc->index.size(); i++) {
+                std::string index_path = fs_path + "/" + loc->index[i];
+                if (stat(index_path.c_str(), &st) == 0 && S_ISREG(st.st_mode)) {
+                    this->redirect_target = current_path + "/" + loc->index[i];
+                    return requ; // caller is responsible for issuing the redirect response
+                }
+            }
+        }
+
+        // No index found at redirect target: still report the redirect code/target.
+        this->redirect_target = current_path;
         return requ;
     }
-    if (!method_allowed(this->method, loc)) 
-    {
+
+    if (!method_allowed(this->method, loc)) {
         requ.code = 405;
         requ.path = "";
         return requ;
     }
-   
-// (otherwise proceed to GET logic)
+
+    // --- Upload-enabled location: write target is the upload dir, not document root ---
+    if (loc && loc->upload.enabled && !loc->upload.dir.empty() &&
+        this->path.find(loc->prefix) == 0)
+    {
+        struct stat st;
+        if (stat(loc->upload.dir.c_str(), &st) != 0 || !S_ISDIR(st.st_mode)) {
+            requ.code = 500;
+            requ.path = "";
+            return requ;
+        }
+
+        std::string upload_dir = strip_trailing_slash(loc->upload.dir);
+        std::string path_to_use = strip_location_prefix(this->path, loc);
+
+        requ.code = 200;
+        requ.path = upload_dir + path_to_use;
+        return requ;
+    }
+
+    // --- Default: map request path onto document root ---
     std::string root = serv.root;
     if (loc && !loc->root.empty())
         root = loc->root;
-    std::string fs_path = root + this->path; 
-    check_path_get(requ, fs_path, loc ,this->method);
+    root = strip_trailing_slash(root);
+
+    std::string path_to_use = strip_location_prefix(this->path, loc);
+    std::string fs_path = root + path_to_use;
+
+    check_path_get(requ, fs_path, loc, this->method);
     return requ;
 }
-
-// --- The fixed, robust HttpRequest constructor. All error codes are correct. ---
 
 HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& serv)
 {
     const size_t DEFAULT_MAX_BODY = 1024 * 1024 * 5;
     const size_t MAX_BODY = serv.client_max_body_size ? serv.client_max_body_size : DEFAULT_MAX_BODY;
-    const size_t MAX_PATH = 2048; // 2048 bytes max URI/path size
+    const size_t MAX_PATH = 2048;
+
+    this->status = 200;
+    this->confurm_path = "";
+    this->redirect_target = "";
+    this->is_cgi = false;
 
     try {
         if (raw_request.empty())
@@ -486,8 +430,7 @@ HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& ser
         std::vector<std::string> lines;
         std::stringstream ss(raw_request);
         std::string line;
-        this->redirect_target = "";
-        while (std::getline(ss, line)) 
+        while (std::getline(ss, line))
             lines.push_back(line);
 
         if (lines.empty())
@@ -496,97 +439,177 @@ HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& ser
         if (!valid_request_line(lines[0]))
             throw std::invalid_argument("Malformed request line");
 
-        this->method = parse_method(lines[0]);
-        this->path = parse_path(lines[0]);
+        this->method  = parse_method(lines[0]);
+        this->path    = parse_path(lines[0]);
         this->version = parse_version(lines[0]);
 
-        // [COMPLETE] 414 URI Too Long
         if (this->path.size() > MAX_PATH) {
             this->status = 414;
-            this->redirect_target = "";
             return;
         }
 
         this->headers = pars_heders(lines);
 
-        // [COMPLETE] 400 Bad Request if Host header missing for HTTP/1.1+
         if ((this->version == "HTTP/1.1" || this->version == "HTTP/2.0") &&
             this->headers.find("Host") == this->headers.end()) {
-            this->status = 400; // Bad Request
-            this->redirect_target = "";
+            this->status = 400;
             return;
         }
 
-        // [COMPLETE] 411 Length Required for POST/PUT sheck if Content-Length existed or not
-        if ((this->method == "POST" || this->method == "PUT") &&
-            this->headers.find("Content-Length") == this->headers.end()) {
+        if (this->method == "POST" && this->headers.find("Content-Length") == this->headers.end()) {
             this->status = 411;
-            this->redirect_target = "";
             return;
         }
 
         this->body = pars_body(lines);
 
-        // [COMPLETE] 413 Payload Too Large
-        if (this->method == "POST" || this->method == "PUT") 
-{
-        std::map<std::string, std::string>::const_iterator it = this->headers.find("Content-Length");
-        if (it != this->headers.end()) 
-    {
-        std::istringstream iss(it->second);
-        size_t body_len = 0;
-        iss >> body_len;
-
-        if (!iss.fail() && body_len > MAX_BODY) 
-        {
-            this->status = 413;
-            return;
+        if (this->method == "POST") {
+            std::map<std::string, std::string>::const_iterator it = this->headers.find("Content-Length");
+            if (it != this->headers.end()) {
+                std::istringstream iss(it->second);
+                size_t body_len = 0;
+                iss >> body_len;
+                if (!iss.fail() && body_len > MAX_BODY) {
+                    this->status = 413;
+                    return;
+                }
+            }
+            if (this->body.size() > MAX_BODY) {
+                this->status = 413;
+                return;
+            }
         }
-    }
-    // else: header is required! Check that separately for 411
-}
-
-// After reading the real body (defensive, "paranoia" check)
-if (this->method == "POST" || this->method == "PUT") {
-    if (this->body.size() > MAX_BODY) {
-        this->status = 413;
-        return;
-    }
-}
 
         this->query_params = pars_query(lines[0]);
-        this->status = validate_request(serv).code;
-        if (this->status == 200 || this->status == 1001)
-            this->redirect_target = validate_request(serv).path;
-    } 
-    catch (const std::logic_error& e) 
-    { // in constructor catch list
-        if (std::string(e.what()) == "501")
-            this->status = 501;
-        else
-            this->status = 400;
-        this->redirect_target = "";
+
+        validat result = validate_request(serv); // single call, no duplicate work
+        this->status = result.code;
+        this->confurm_path = result.path;
+
+        // --- CGI detection / environment setup ---
+        if (this->status == 200 || this->status == 1001) {
+            size_t query_pos = this->path.find('?');
+            this->query_string = (query_pos != std::string::npos)
+                ? this->path.substr(query_pos + 1)
+                : "";
+
+            this->detect_cgi_request(serv);
+
+            if (this->is_cgi && (this->status == 200 || this->status == 1001))
+                this->setup_cgi_environment(serv);
+        }
     }
-    catch (const std::exception& e) 
-    {
+    catch (const std::logic_error& e) {
+        this->status = (std::string(e.what()) == "501") ? 501 : 400;
+        this->confurm_path = "";
+        this->is_cgi = false;
+    }
+    catch (const std::exception& e) {
+        (void)e;
         this->status = 400;
-        this->redirect_target = "";
+        this->confurm_path = "";
+        this->is_cgi = false;
     }
 }
 
+bool HttpRequest::detect_cgi_request(const ServerConfig& serv)
+{
+    const ServerConfig::LocationConfig* best = best_match_location(this->path, serv);
+
+    if (!best || best->cgi.empty()) {
+        is_cgi = false;
+        return false;
+    }
+
+    size_t dot_pos = confurm_path.find_last_of('.');
+    if (dot_pos == std::string::npos) {
+        is_cgi = false;
+        return false;
+    }
+
+    cgi_extension = confurm_path.substr(dot_pos);
+
+    std::map<std::string, std::string>::const_iterator cgi_it = best->cgi.find(cgi_extension);
+    if (cgi_it == best->cgi.end()) {
+        status = 403;
+        is_cgi = false;
+        return false;
+    }
+
+    cgi_interpreter = cgi_it->second;
+    cgi_script_path = confurm_path;
+    is_cgi = true;
+    return true;
+}
+
+void HttpRequest::setup_cgi_environment(const ServerConfig& serv)
+{
+    if (!is_cgi) return;
+    cgi_env.clear();
+
+    cgi_env["REQUEST_METHOD"] = method;
+    cgi_env["QUERY_STRING"]   = query_string;
+    cgi_env["CONTENT_LENGTH"] = intToString(body.length());
+
+    std::map<std::string, std::string>::const_iterator it_content = headers.find("Content-Type");
+    cgi_env["CONTENT_TYPE"] = (it_content != headers.end()) ? it_content->second : "";
+
+    cgi_env["SCRIPT_NAME"]     = path;
+    cgi_env["SCRIPT_FILENAME"] = cgi_script_path;
+    cgi_env["PATH_INFO"]       = path;
+
+    cgi_env["SERVER_NAME"]     = serv.server_name;
+    cgi_env["SERVER_PORT"]     = intToString(serv.listens[0].port);
+    cgi_env["SERVER_PROTOCOL"] = "HTTP/1.1";
+    cgi_env["GATEWAY_INTERFACE"] = "CGI/1.1";
+
+    for (std::map<std::string, std::string>::const_iterator it = headers.begin();
+         it != headers.end(); ++it)
+    {
+        std::string key = it->first;
+        if (key == "Content-Type" || key == "Content-Length")
+            continue;
+
+        std::transform(key.begin(), key.end(), key.begin(), ::toupper);
+        for (std::string::iterator c = key.begin(); c != key.end(); ++c) {
+            if (*c == '-') *c = '_';
+        }
+        key = "HTTP_" + key;
+        cgi_env[key] = it->second;
+    }
+}
 
 void HttpRequest::reqq()
 {
+    std::cout
+        << "method: "          << this->method          << "\n"
+        << "path: "            << this->path            << "\n"
+        << "confurm_path: "    << this->confurm_path    << "\n"
+        << "version: "         << this->version          << "\n"
+        << "body: "            << this->body            << "\n"
+        << "status: "          << this->status           << "\n"
+        << "redirect_target: " << this->redirect_target << "\n";
 
- std::cout
-  << "method: " << this->method << "\n"
-  << "path: " << this->path << "\n"
-  << "version: " << this->version << "\n"
-  << "body: " << this->body << "\n"
-  << "status: " << this->status << "\n"
-  << "redirect_target: " << this->redirect_target << "\n";
-for (std::map<std::string, std::string>::iterator it = this->headers.begin(); it != this->headers.end(); ++it)
-  std::cerr << "header: " << it->first << " = " << it->second << "\n";
-for (std::map<std::string, std::string>::iterator it = this->query_params.begin(); it != this->query_params.end(); ++it)
-  std::cerr << "query: " << it->first << " = " << it->second << "\n";
+    for (std::map<std::string, std::string>::iterator it = this->headers.begin();
+         it != this->headers.end(); ++it)
+        std::cerr << "header: " << it->first << " = " << it->second << "\n";
+
+    for (std::map<std::string, std::string>::iterator it = this->query_params.begin();
+         it != this->query_params.end(); ++it)
+        std::cerr << "query: " << it->first << " = " << it->second << "\n";
+
+    std::cout << "\n--- CGI Information ---\n";
+    std::cout << "is_cgi: " << (this->is_cgi ? "true" : "false") << "\n";
+
+    if (this->is_cgi) {
+        std::cout << "cgi_script_path: " << this->cgi_script_path << "\n"
+                  << "cgi_extension: "   << this->cgi_extension   << "\n"
+                  << "cgi_interpreter: " << this->cgi_interpreter << "\n"
+                  << "query_string: "    << this->query_string    << "\n";
+
+        std::cout << "\nCGI Environment Variables:\n";
+        for (std::map<std::string, std::string>::iterator it = this->cgi_env.begin();
+             it != this->cgi_env.end(); ++it)
+            std::cerr << "  " << it->first << " = " << it->second << "\n";
+    }
 }

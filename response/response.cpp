@@ -6,15 +6,21 @@
 /*   By: mac <mac@student.42.fr>                    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/05/14 13:02:04 by naessgui          #+#    #+#             */
-/*   Updated: 2026/06/04 08:20:54 by mac              ###   ########.fr       */
+/*   Updated: 2026/06/30 00:00:00 by mac              ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "response.hpp"
+#include <sstream>
 
-// std::string intToString(int v);
+std::string intToString(int v)
+{
+    std::ostringstream oss;
+    oss << v;
+    return oss.str();
+}
 
-Response::Response()
+Response::Response() : statusCode(200), statusMessage("OK")
 {
 }
 
@@ -28,6 +34,7 @@ void Response::setBody(std::string content)
 {
     body = content;
 }
+
 void Response::setHeader(std::string key, std::string value)
 {
     headers[key] = value;
@@ -38,36 +45,18 @@ std::string Response::getBody() const
     return body;
 }
 
-void Response::print() const
+int Response::getStatusCode() const
 {
-    std::cout << "===== HTTP RESPONSE =====" << std::endl;
-    std::cout << "HTTP/1.1 " << statusCode << " " << statusMessage << "\r\n";
-    for (std::map<std::string, std::string>::const_iterator it = headers.begin();
-        it != headers.end(); ++it)
-    {
-        std::cout << it->first << ": " << it->second << "\r\n";
-    }
-    std::cout << "Content-Length: " << body.size() << "\r\n";
-    std::cout << "\r\n";
-    std::cout << body << std::endl;
-    std::cout << "=========================" << std::endl;
-}
-
-#include <sstream>
-
-std::string intToString(int v)
-{
-    std::ostringstream oss;
-    oss << v;
-    return oss.str();
+    return statusCode;
 }
 
 std::string Response::buildResponse()
 {
+    // Content-Length is always recomputed here so callers never have to
+    // remember to set it manually before building.
+    headers["Content-Length"] = intToString(static_cast<int>(body.size()));
+
     std::string response;
-
-    headers["Content-Length"] = intToString(body.size());
-
     response += "HTTP/1.1 ";
     response += intToString(statusCode);
     response += " ";
@@ -75,7 +64,7 @@ std::string Response::buildResponse()
     response += "\r\n";
 
     for (std::map<std::string, std::string>::iterator it = headers.begin();
-        it != headers.end(); ++it)
+         it != headers.end(); ++it)
     {
         response += it->first;
         response += ": ";
@@ -84,8 +73,22 @@ std::string Response::buildResponse()
     }
 
     response += "\r\n";
-
     response += body;
 
     return response;
+}
+
+void Response::print() const
+{
+    std::cout << "===== HTTP RESPONSE =====" << std::endl;
+    std::cout << "HTTP/1.1 " << statusCode << " " << statusMessage << "\r\n";
+    for (std::map<std::string, std::string>::const_iterator it = headers.begin();
+         it != headers.end(); ++it)
+    {
+        std::cout << it->first << ": " << it->second << "\r\n";
+    }
+    std::cout << "Content-Length: " << body.size() << "\r\n";
+    std::cout << "\r\n";
+    std::cout << body << std::endl;
+    std::cout << "=========================" << std::endl;
 }

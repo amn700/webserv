@@ -5,38 +5,49 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: naessgui <naessgui@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/05/15 20:47:01 by naessgui          #+#    #+#             */
-/*   Updated: 2026/06/03 20:23:19 by naessgui         ###   ########.fr       */
+/*   Created: 2026/05/15 20:46:44 by naessgui          #+#    #+#             */
+/*   Updated: 2026/06/30 00:00:00 by mac              ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-
 #ifndef RESPONSEHANDLER_HPP
-#define RESPONSEHANDLER_HPP
+# define RESPONSEHANDLER_HPP
+
+#include <string>
 #include "response.hpp"
 #include "../request/HttpRequest.hpp"
 #include "../configtypes.hpp"
 
-
-
+// Resolves an HttpRequest (already validated against a ServerConfig) into
+// a Response, dispatching on req.status / req.method.
 class ResponseHandler
 {
-    private:
-        const HttpRequest& req;
-        const ServerConfig& conf;
-
     public:
         ResponseHandler(const HttpRequest& r, const ServerConfig& c);
 
+        // Entry point: inspects req.status and req.method and dispatches
+        // to the appropriate handler below.
         Response handle();
 
     private:
-        Response handleReqErrors();
+        const HttpRequest&  req;
+        const ServerConfig& conf;
 
         Response handleGET(const std::string& path);
-        Response handlePOST();
         Response handleDELETE();
+        Response handlePOST();
         Response handleAutoIndex(const std::string& path);
+        Response handleReqErrors();
 
+        // Not assignable: holds references.
+        ResponseHandler& operator=(const ResponseHandler& other);
 };
+
+// --- Free helpers used by ResponseHandler.cpp (also declared here so other
+//     translation units can reuse them if needed) ---
+bool        readFile(const std::string& path, std::string& content);
+std::string getMimeType(const std::string& path);
+std::string getExtFromContentType(const std::string& ct);
+std::string toString(int n);
+
 #endif
