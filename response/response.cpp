@@ -1,15 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   response.cpp                                       :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: mac <mac@student.42.fr>                    +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/05/14 13:02:04 by naessgui          #+#    #+#             */
-/*   Updated: 2026/06/30 00:00:00 by mac              ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "response.hpp"
 #include <sstream>
 
@@ -38,6 +26,10 @@ void Response::setBody(std::string content)
 void Response::setHeader(std::string key, std::string value)
 {
     headers[key] = value;
+}
+void Response::setCookie(std::string name, std::string value, std::string path, bool httpOnly)
+{
+    cookieHeaders.push_back(Cookie::buildSetCookie(name, value, path, httpOnly));
 }
 
 std::string Response::getBody() const
@@ -69,6 +61,13 @@ std::string Response::buildResponse()
         response += it->first;
         response += ": ";
         response += it->second;
+        response += "\r\n";
+    }
+    for (std::vector<std::string>::iterator it = cookieHeaders.begin();
+        it != cookieHeaders.end(); ++it)
+    {
+        response += "Set-Cookie: ";
+        response += *it;
         response += "\r\n";
     }
 

@@ -1,15 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   ResponseHandler.cpp                                :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: naessgui <naessgui@student.42.fr>          +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/05/15 20:46:44 by naessgui          #+#    #+#             */
-/*   Updated: 2026/07/01 00:00:00 by mac              ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "ResponseHandler.hpp"
 #include <sstream>
 #include <fstream>
@@ -785,6 +773,18 @@ Response ResponseHandler::handle()
     res.setBody("<h1>405 Method Not Allowed</h1>");
     res.setHeader("Content-Type", "text/html");
     res.setHeader("Date", getHttpDate());
+    if (res.getStatusCode() < 400)
+    {
+        std::map<std::string, std::string>::const_iterator it = req.query_params.find("user");
+        std::string cookieValue;
+
+        if (it != req.query_params.end() && !it->second.empty())
+            cookieValue = it->second;
+        else
+            cookieValue = "visited_homepage";
+
+        res.setCookie("webserv", cookieValue, "/", false);
+    }
 
     return res;
 }

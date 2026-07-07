@@ -337,6 +337,18 @@
             <ul class="file-list" id="file-list"></ul>
           </div>
         </article>
+        <article class="card">
+          <h2>Cookie test</h2>
+          <p>Send a name through the query string and check the browser cookie toolbox for the value.</p>
+          <form method="get" action="/">
+            <div>
+              <label for="cookie-user">User name</label>
+              <input id="cookie-user" name="user" type="text" value="mac">
+            </div>
+            <button class="btn accent" type="submit">Set cookie on /</button>
+          </form>
+          <p class="tiny">After submitting, inspect <code>webserv</code> in DevTools. The cookie value will match the text you entered.</p>
+        </article>
       </section>
     </main>
 <script>

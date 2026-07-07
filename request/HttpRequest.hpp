@@ -9,6 +9,7 @@
 #include <netinet/in.h>
 #include <cstring>
 #include <string>
+#include "../cookies/Cookie.hpp"
 #include <sys/stat.h>  // stat, struct stat, S_ISDIR
 #include <unistd.h>    // access, R_OK
 #include <errno.h>
@@ -25,6 +26,7 @@ public:
     std::string path;
     std::string version;
     std::map<std::string, std::string> headers;
+    std::map<std::string, std::string> cookies;
     std::string body;
     std::map<std::string, std::string> query_params;
 
