@@ -6,12 +6,13 @@
 /*   By: mac <mac@student.42.fr>                    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/05/14 13:02:04 by naessgui          #+#    #+#             */
-/*   Updated: 2026/06/30 00:00:00 by mac              ###   ########.fr       */
+/*   Updated: 2026/07/07 09:33:23 by mac              ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "response.hpp"
 #include <sstream>
+#include <vector>
 
 std::string intToString(int v)
 {
@@ -38,6 +39,11 @@ void Response::setBody(std::string content)
 void Response::setHeader(std::string key, std::string value)
 {
     headers[key] = value;
+}
+
+void Response::setCookie(std::string name, std::string value, std::string path, bool httpOnly)
+{
+    cookieHeaders.push_back(Cookie::buildSetCookie(name, value, path, httpOnly));
 }
 
 std::string Response::getBody() const
@@ -71,7 +77,13 @@ std::string Response::buildResponse()
         response += it->second;
         response += "\r\n";
     }
-
+    for (std::vector<std::string>::iterator it = cookieHeaders.begin();
+        it != cookieHeaders.end(); ++it)
+    {
+        response += "Set-Cookie: ";
+        response += *it;
+        response += "\r\n";
+    }
     response += "\r\n";
     response += body;
 
