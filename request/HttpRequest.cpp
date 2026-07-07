@@ -531,7 +531,7 @@ HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& ser
             this->detect_cgi_request(serv);
 
             if (this->is_cgi && (this->status == 200 || this->status == 1001))
-                this->setup_cgi_environment(serv, serverPort);
+                this->setup_cgi_environment(serv, serv.listens.empty() ? 0 : serv.listens[0].port);
         }
     }
     catch (const std::logic_error& e) {

@@ -357,7 +357,7 @@ bool WebServer::handleClientEvents(size_t clientPollIndex)
 
                 std::cout << st.in << std::endl;
 
-                HttpRequest req(st.in, _conf.servers[idx], listenerPort(st.listenerFd));
+                HttpRequest req(st.in, _conf.servers[idx]);
 
                 Response res = ResponseHandler(req, _conf.servers[idx]).handle();
                 // res.print();
