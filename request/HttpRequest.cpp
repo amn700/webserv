@@ -2,6 +2,28 @@
 #include "../response/response.hpp"
 #include <algorithm>
 
+static std::string lowerCopy(const std::string& value)
+{
+    std::string result = value;
+    for (size_t i = 0; i < result.size(); ++i)
+        result[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(result[i])));
+    return result;
+}
+
+static std::map<std::string, std::string>::const_iterator findHeaderInsensitive(
+    const std::map<std::string, std::string>& headers,
+    const std::string& wanted)
+{
+    const std::string wantedLower = lowerCopy(wanted);
+    for (std::map<std::string, std::string>::const_iterator it = headers.begin();
+         it != headers.end(); ++it)
+    {
+        if (lowerCopy(it->first) == wantedLower)
+            return it;
+    }
+    return headers.end();
+}
+
 // ============================================================
 // Free helper functions
 // ============================================================
@@ -180,7 +202,7 @@ static std::string strip_location_prefix(const std::string& path,
 
     if (loc && !loc->root.empty() && loc->prefix != "/") {
         if (path_to_use.find(loc->prefix) == 0)
-            path_to_use = path_to_use.substr(loc->prefix.length() - 1);
+            path_to_use = path_to_use.substr(loc->prefix.length());
     }
 
     if (!path_to_use.empty() && path_to_use[0] != '/')
@@ -323,54 +345,17 @@ void check_path_get(validat& requ, const std::string& fs_path,
 // ============================================================
 // HttpRequest member functions
 // ============================================================
-
 validat HttpRequest::validate_request(const ServerConfig& serv)
 {
     std::string current_path = this->path;
     const ServerConfig::LocationConfig* loc = best_match_location(current_path, serv);
     validat requ;
 
-    // --- Follow redirects (with loop guard) ---
+    // --- Redirect (single hop; caller/client follows further redirects) ---
     if (loc && loc->redirect.enabled)
     {
         requ.code = loc->redirect.code;
-        int redirects_followed = 0;
-        int max_redirects = static_cast<int>(serv.locations.size());
-
-        while (loc && loc->redirect.enabled && redirects_followed < max_redirects) {
-            current_path = loc->redirect.target;
-            redirects_followed++;
-            loc = best_match_location(current_path, serv);
-        }
-
-        if (redirects_followed >= max_redirects) {
-            requ.code = 508; // loop detected
-            requ.path = "";
-            return requ;
-        }
-
-        std::string root = serv.root;
-        if (loc && !loc->root.empty())
-            root = loc->root;
-        root = strip_trailing_slash(root);
-
-        std::string path_to_use = strip_location_prefix(current_path, loc);
-        std::string fs_path = root + path_to_use;
-
-        struct stat st;
-        if (stat(fs_path.c_str(), &st) == 0 && S_ISDIR(st.st_mode) && loc && !loc->index.empty())
-        {
-            for (size_t i = 0; i < loc->index.size(); i++) {
-                std::string index_path = fs_path + "/" + loc->index[i];
-                if (stat(index_path.c_str(), &st) == 0 && S_ISREG(st.st_mode)) {
-                    this->redirect_target = current_path + "/" + loc->index[i];
-                    return requ; // caller is responsible for issuing the redirect response
-                }
-            }
-        }
-
-        // No index found at redirect target: still report the redirect code/target.
-        this->redirect_target = current_path;
+        this->redirect_target = loc->redirect.target;
         return requ;
     }
 
@@ -378,6 +363,55 @@ validat HttpRequest::validate_request(const ServerConfig& serv)
         requ.code = 405;
         requ.path = "";
         return requ;
+    }
+
+    // --- CGI-enabled location: map the request to the script file itself ---
+    if (loc && !loc->cgi.empty())
+    {
+        std::string root = serv.root;
+        if (loc && !loc->root.empty())
+            root = loc->root;
+        root = strip_trailing_slash(root);
+
+        std::string path_to_use = strip_location_prefix(this->path, loc);
+        std::string fs_path = root + path_to_use;
+
+        std::string::size_type dot_pos = fs_path.find_last_of('.');
+        if (dot_pos != std::string::npos)
+        {
+            std::string ext = fs_path.substr(dot_pos);
+            if (loc->cgi.find(ext) != loc->cgi.end())
+            {
+                struct stat st;
+                if (stat(fs_path.c_str(), &st) != 0)
+                {
+                    if (errno == ENOENT || errno == ENOTDIR)
+                        requ.code = 404;
+                    else if (errno == EACCES || errno == EPERM)
+                        requ.code = 403;
+                    else
+                        requ.code = 500;
+                    requ.path = "";
+                    return requ;
+                }
+                if (!S_ISREG(st.st_mode))
+                {
+                    requ.code = 403;
+                    requ.path = "";
+                    return requ;
+                }
+                if (access(fs_path.c_str(), R_OK) != 0)
+                {
+                    requ.code = (errno == EACCES || errno == EPERM) ? 403 : 500;
+                    requ.path = "";
+                    return requ;
+                }
+
+                requ.code = 200;
+                requ.path = fs_path;
+                return requ;
+            }
+        }
     }
 
     // --- Upload-enabled location: write target is the upload dir, not document root ---
@@ -405,7 +439,9 @@ validat HttpRequest::validate_request(const ServerConfig& serv)
         root = loc->root;
     root = strip_trailing_slash(root);
 
-    std::string path_to_use = strip_location_prefix(this->path, loc);
+    // Guard against a null loc: no location matched, so there's no
+    // prefix to strip — use the raw request path against the server root.
+    std::string path_to_use = loc ? strip_location_prefix(this->path, loc) : this->path;
     std::string fs_path = root + path_to_use;
 
     check_path_get(requ, fs_path, loc, this->method);
@@ -440,6 +476,10 @@ HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& ser
             throw std::invalid_argument("Malformed request line");
 
         this->method  = parse_method(lines[0]);
+        this->query_string = pars_query(lines[0]).empty() ? "" : lines[0].substr(lines[0].find(' ') + 1, lines[0].find(' ', lines[0].find(' ') + 1) - lines[0].find(' ') - 1);
+        size_t query_pos = this->query_string.find('?');
+        if (query_pos != std::string::npos)
+            this->query_string = this->query_string.substr(query_pos + 1);
         this->path    = parse_path(lines[0]);
         this->version = parse_version(lines[0]);
 
@@ -451,12 +491,12 @@ HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& ser
         this->headers = pars_heders(lines);
 
         if ((this->version == "HTTP/1.1" || this->version == "HTTP/2.0") &&
-            this->headers.find("Host") == this->headers.end()) {
+            findHeaderInsensitive(this->headers, "Host") == this->headers.end()) {
             this->status = 400;
             return;
         }
 
-        if (this->method == "POST" && this->headers.find("Content-Length") == this->headers.end()) {
+        if (this->method == "POST" && findHeaderInsensitive(this->headers, "Content-Length") == this->headers.end()) {
             this->status = 411;
             return;
         }
@@ -464,7 +504,7 @@ HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& ser
         this->body = pars_body(lines);
 
         if (this->method == "POST") {
-            std::map<std::string, std::string>::const_iterator it = this->headers.find("Content-Length");
+            std::map<std::string, std::string>::const_iterator it = findHeaderInsensitive(this->headers, "Content-Length");
             if (it != this->headers.end()) {
                 std::istringstream iss(it->second);
                 size_t body_len = 0;
@@ -488,15 +528,10 @@ HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& ser
 
         // --- CGI detection / environment setup ---
         if (this->status == 200 || this->status == 1001) {
-            size_t query_pos = this->path.find('?');
-            this->query_string = (query_pos != std::string::npos)
-                ? this->path.substr(query_pos + 1)
-                : "";
-
             this->detect_cgi_request(serv);
 
             if (this->is_cgi && (this->status == 200 || this->status == 1001))
-                this->setup_cgi_environment(serv);
+                this->setup_cgi_environment(serv, serverPort);
         }
     }
     catch (const std::logic_error& e) {
@@ -542,7 +577,7 @@ bool HttpRequest::detect_cgi_request(const ServerConfig& serv)
     return true;
 }
 
-void HttpRequest::setup_cgi_environment(const ServerConfig& serv)
+void HttpRequest::setup_cgi_environment(const ServerConfig& serv, int serverPort)
 {
     if (!is_cgi) return;
     cgi_env.clear();
@@ -551,15 +586,20 @@ void HttpRequest::setup_cgi_environment(const ServerConfig& serv)
     cgi_env["QUERY_STRING"]   = query_string;
     cgi_env["CONTENT_LENGTH"] = intToString(body.length());
 
-    std::map<std::string, std::string>::const_iterator it_content = headers.find("Content-Type");
+    std::map<std::string, std::string>::const_iterator it_content = findHeaderInsensitive(headers, "Content-Type");
     cgi_env["CONTENT_TYPE"] = (it_content != headers.end()) ? it_content->second : "";
 
     cgi_env["SCRIPT_NAME"]     = path;
     cgi_env["SCRIPT_FILENAME"] = cgi_script_path;
-    cgi_env["PATH_INFO"]       = path;
+    cgi_env["PATH_INFO"]       = "";
 
     cgi_env["SERVER_NAME"]     = serv.server_name;
-    cgi_env["SERVER_PORT"]     = intToString(serv.listens[0].port);
+    if (serverPort > 0)
+        cgi_env["SERVER_PORT"] = intToString(serverPort);
+    else if (!serv.listens.empty())
+        cgi_env["SERVER_PORT"] = intToString(serv.listens[0].port);
+    else
+        cgi_env["SERVER_PORT"] = "";
     cgi_env["SERVER_PROTOCOL"] = "HTTP/1.1";
     cgi_env["GATEWAY_INTERFACE"] = "CGI/1.1";
 

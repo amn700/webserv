@@ -36,6 +36,7 @@ class ResponseHandler
         Response handleGET(const std::string& path);
         Response handleDELETE();
         Response handlePOST();
+        Response handleCGI();
         Response handleAutoIndex(const std::string& path);
         Response handleReqErrors();
 

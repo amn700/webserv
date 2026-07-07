@@ -50,6 +50,7 @@ private:
 
     void handleListenerReadable(int listenerPollIndex);
     bool handleClientEvents(size_t clientPollIndex);
+    int listenerPort(int listenerFd) const;
 
     static bool hasHeaderTerminator(const std::string& s);
 };

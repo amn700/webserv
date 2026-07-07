@@ -114,6 +114,16 @@ void WebServer::setNonBlocking(int fd)
         throw std::runtime_error(syscallError("fcntl(F_SETFL)"));
 }
 
+int WebServer::listenerPort(int listenerFd) const
+{
+    for (size_t i = 0; i < _listeners.size(); ++i)
+    {
+        if (_listeners[i]->get_fd() == listenerFd)
+            return ntohs(_listeners[i]->get_address().sin_port);
+    }
+    return -1;
+}
+
 
 WebServer::WebServer(const Config& conf)
     : _conf(conf)
@@ -347,7 +357,7 @@ bool WebServer::handleClientEvents(size_t clientPollIndex)
 
                 std::cout << st.in << std::endl;
 
-                HttpRequest req(st.in, _conf.servers[idx]);
+                HttpRequest req(st.in, _conf.servers[idx], listenerPort(st.listenerFd));
 
                 Response res = ResponseHandler(req, _conf.servers[idx]).handle();
                 // res.print();

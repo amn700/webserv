@@ -38,10 +38,10 @@ public:
     std::string cgi_interpreter;
     std::map<std::string, std::string> cgi_env;
 
-    HttpRequest(const std::string& raw_request,const ServerConfig& serv);
+    HttpRequest(const std::string& raw_request,const ServerConfig& serv, int serverPort);
     validat validate_request(const ServerConfig& serv);
     bool detect_cgi_request(const ServerConfig& serv);
-    void setup_cgi_environment(const ServerConfig& serv);
+    void setup_cgi_environment(const ServerConfig& serv, int serverPort);
     void reqq();
 };
 
