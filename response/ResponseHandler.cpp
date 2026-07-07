@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ResponseHandler.cpp                                :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mac <mac@student.42.fr>                    +#+  +:+       +#+        */
+/*   By: naessgui <naessgui@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/05/15 20:46:44 by naessgui          #+#    #+#             */
-/*   Updated: 2026/07/07 11:28:03 by mac              ###   ########.fr       */
+/*   Updated: 2026/06/30 00:00:00 by mac              ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -370,38 +370,23 @@ Response ResponseHandler::handleAutoIndex(const std::string& path)
 
 Response ResponseHandler::handle()
 {
-    Response res;
-
     if (req.status == 1001)
-        res = handleAutoIndex(req.confurm_path);
-    else if (req.status != 200)
+        return handleAutoIndex(req.confurm_path);
+
+    if (req.status != 200)
         return handleReqErrors();
-    else if (req.method == "GET")
-        res = handleGET(req.confurm_path);
+
+    if (req.method == "GET")
+        return handleGET(req.confurm_path);
     else if (req.method == "DELETE")
-        res = handleDELETE();
+        return handleDELETE();
     else if (req.method == "POST")
-        res = handlePOST();
-    else
-    {
-        res.setStatus(405, "Method Not Allowed");
-        res.setBody("<h1>405 Method Not Allowed</h1>");
-        res.setHeader("Content-Type", "text/html");
-        return res;
-    }
+        return handlePOST();
 
-    if (res.getStatusCode() < 400)
-    {
-        std::map<std::string, std::string>::const_iterator it = req.query_params.find("user");
-        std::string cookieValue;
-
-        if (it != req.query_params.end() && !it->second.empty())
-            cookieValue = it->second;
-        else
-            cookieValue = "visited_homepage";
-
-        res.setCookie("webserv", cookieValue, "/", false);
-    }
+    Response res;
+    res.setStatus(405, "Method Not Allowed");
+    res.setBody("<h1>405 Method Not Allowed</h1>");
+    res.setHeader("Content-Type", "text/html");
 
     return res;
 }

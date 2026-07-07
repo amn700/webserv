@@ -9,8 +9,7 @@ SRCS := \
 	WebServer.cpp \
 	socket.cpp \
 	location_parsing.cpp \
-	response/response.cpp response/ResponseHandler.cpp \
-	cookies/Cookie.cpp
+	response/response.cpp response/ResponseHandler.cpp
 
 
 OBJS := $(SRCS:.cpp=.o)
