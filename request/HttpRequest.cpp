@@ -125,16 +125,6 @@ std::string pars_body(const std::vector<std::string>& lines)
     return ret;
 }
 
-static std::map<std::string, std::string> parse_cookies(const std::map<std::string, std::string>& headers)
-{
-    std::map<std::string, std::string> cookies;
-    std::map<std::string, std::string>::const_iterator it = headers.find("Cookie");
-
-    if (it == headers.end())
-        return cookies;
-    return Cookie::parse(it->second);
-}
-
 std::vector<std::string> split(const std::string& str, char delimiter)
 {
     std::vector<std::string> result;
@@ -451,8 +441,7 @@ validat HttpRequest::validate_request(const ServerConfig& serv)
 
     // Guard against a null loc: no location matched, so there's no
     // prefix to strip — use the raw request path against the server root.
-    std::string path_to_use = loc ? strip_location_prefix(this->path, loc) : this->path;
-    std::string fs_path = root + path_to_use;
+    std::string path_to_use = this->path;    std::string fs_path = root + path_to_use;
 
     check_path_get(requ, fs_path, loc, this->method);
     return requ;
@@ -499,7 +488,6 @@ HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& ser
         }
 
         this->headers = pars_heders(lines);
-        this->cookies = parse_cookies(this->headers);
 
         if ((this->version == "HTTP/1.1" || this->version == "HTTP/2.0") &&
             findHeaderInsensitive(this->headers, "Host") == this->headers.end()) {
