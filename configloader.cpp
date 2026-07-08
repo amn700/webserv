@@ -6,7 +6,6 @@
 #include <sstream>
 #include <string>
 #include <cctype>
-// #include <iostream>
 
 
 std::string intToStr(int v)
@@ -329,42 +328,3 @@ bool ConfigLoader::tryLoadFromFile(const std::string& path, Config& out, std::st
         return false;
     }
 }
-
-// all possible server block content
-// make sure the data bellow are correct
-/*
-    listen ::: mandatory, at least one; multiple allowed
-        ex: listen ip:port;
-    server_name ::: optional, only one allowed
-        ex: server_name site1.local;
-    root ::: mandatory, only one allowed
-        ex: root /var/www/html/;
-    client_max_body_size ::: optional, only one allowed; default 0 (use default)
-        ex: client_max_body_size 10M;
-    error_page ::: optional, multiple allowed; default empty
-        ex: error_page 404 /404.html;
-    location ::: optional, multiple allowed; default empty
-        ex: location /upload/ { ... }
-*/
-
-//all possible location block content
-/*
-    prefix ::: mandatory, only one allowed;
-        ex: /upload/ /cgi-bin/
-    allowed_methods  ::: optional, only one allowed; default empty (use server/default)
-        ex: GET POST DELETE
-    redirect  ::: optional, only one allowed; default none
-        ex: return 301 http://example.com/;
-    root    ::: optional, only one allowed; default none (use server/default)
-        ex: root /var/www/html/upload/;
-    autoindex  ::: optional, only one allowed; default false
-        ex: autoindex on;
-    index  ::: optional, only one allowed; default empty
-        ex: index index.html index.htm;
-    upload  ::: optional, only one allowed; default none
-        ex: upload /var/www/html/upload/;
-    cgi  ::: optional, multiple allowed; default empty
-        ex: cgi .php /usr/bin/php-cgi;
-    return  ::: optional, only one allowed; default none
-        ex: return 301 http://example.com/;
-*/

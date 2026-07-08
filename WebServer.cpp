@@ -158,13 +158,6 @@ WebServer::WebServer(const Config& conf)
             keyToFd[key] = fd;
             _listenerToServerIndices[fd].push_back(sidx);
         }
-    }
-        //print the _listenerToServerIndices
-    for (std::map<int, std::vector<size_t> >::const_iterator it = _listenerToServerIndices.begin(); it != _listenerToServerIndices.end(); ++it) {
-        std::cout << "Listener fd: " << it->first << " is associated with server indices: ";
-        for (size_t i = 0; i < it->second.size(); ++i) {
-            std::cout << it->second[i] << " ";
-        }
         std::cout << std::endl;
     }
 }
@@ -173,7 +166,6 @@ WebServer::~WebServer()
 {
     for (std::map<int, ClientState>::iterator it = _clients.begin(); it != _clients.end(); ++it)
         (void)close(it->first);
-    // Socket objects own listener fds — delete them so they close their fds.
     for (Sockets::iterator it = _listeners.begin(); it != _listeners.end(); ++it) {
         delete *it;
     }
@@ -210,7 +202,6 @@ void WebServer::closeAndRemove(size_t pollIndex)
         _clients.erase(fd);
     }
 
-    // swap-remove
     if (pollIndex + 1 != _pollfds.size())
         _pollfds[pollIndex] = _pollfds[_pollfds.size() - 1];
     _pollfds.pop_back();
@@ -224,7 +215,6 @@ void WebServer::handleListenerReadable(int listenerPollIndex)
     if (it == _listenerToServerIndices.end() || it->second.empty())
         throw std::runtime_error("Internal error: listener has no associated server");
 
-    // Default routing for new connections: first configured server{} for this listener.
     const size_t serverIndex = it->second[0];
 
     while (true) {
@@ -296,7 +286,6 @@ static bool isRequestComplete(const std::string& in)
     const size_t bodyStart = headerEnd + 4;
     const std::string headers = in.substr(0, headerEnd);
 
-
     if (headerContainsChunked(headers))
     {
 
@@ -331,6 +320,7 @@ bool WebServer::handleClientEvents(size_t clientPollIndex)
             const ssize_t n = recv(fd, buf, sizeof(buf), 0);
             if (n > 0) {
                 st.in.append(buf, static_cast<size_t>(n));
+                st.lastActivity = time(NULL);
                 continue;
             }
             if (n == 0) {
@@ -350,20 +340,13 @@ bool WebServer::handleClientEvents(size_t clientPollIndex)
         if (!st.responded && hasHeaderTerminator(st.in) && isRequestComplete(st.in))
         {
             try {
-                // std::cout << "Received request to server: " << st.serverIndex << " on fd: " << st.listenerFd << std::endl;
-                // std::cout << std::endl;
                 const std::string host = extractHostHeader(st.in);
                 const size_t idx = selectServerIndex(st.listenerFd, host);
-
-                std::cout << st.in << std::endl;
 
                 HttpRequest req(st.in, _conf.servers[idx]);
 
                 Response res = ResponseHandler(req, _conf.servers[idx]).handle();
-                // res.print();
-                // std::cout << std::endl;
                 st.out = res.buildResponse();
-                // std::cout << st.out << std::endl;
                 
 
             } catch (const std::exception& e) {
@@ -372,7 +355,6 @@ bool WebServer::handleClientEvents(size_t clientPollIndex)
             st.responded = true;
         }
     }
-// std::cout <<"hello\n";
     if ((re & POLLOUT) != 0 && !st.out.empty()) {
         int sendFlags = 0;
 #ifdef MSG_NOSIGNAL
@@ -403,6 +385,8 @@ bool WebServer::handleClientEvents(size_t clientPollIndex)
     return false;
 }
 
+static const int kPollTimeoutMs = 2000;
+
 void WebServer::run()
 {
     if (_pollfds.empty())
@@ -425,7 +409,7 @@ void WebServer::run()
             _pollfds[i].events = ev;
         }
 
-        const int rc = poll(&_pollfds[0], _pollfds.size(), -1);
+        const int rc = poll(&_pollfds[0], _pollfds.size(), kPollTimeoutMs);
         if (rc < 0) {
             if (errno == EINTR)
                 continue;

@@ -17,7 +17,6 @@ public:
     WebServer(const Config& conf);
     ~WebServer();
     
-    // Blocking call: runs the poll() event loop until the process is terminated.
     void run();
     
 private:
@@ -29,10 +28,12 @@ private:
         int listenerFd;
         size_t serverIndex;
         bool responded;
+        time_t lastActivity;
+
         
         ClientState() : listenerFd(-1), serverIndex(0), responded(false) {}
         ClientState(int lfd, size_t sidx)
-        : listenerFd(lfd), serverIndex(sidx), responded(false) {}
+        : listenerFd(lfd), serverIndex(sidx), responded(false), lastActivity(time(NULL)) {}
     };
 
     std::vector< ::pollfd > _pollfds;

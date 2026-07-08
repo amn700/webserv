@@ -64,7 +64,6 @@ void parseLocationBlock(TokenList::const_iterator& it,TokenList::const_iterator 
         }
         else if (directive == "return" || directive == "redirect")
         {
-            // Accept both 'return' (as used by our sample config) and 'redirect' (legacy naming)
             expect(it, end, TOK_WORD);
 
             if (it == end || it->type != TOK_WORD)
@@ -162,7 +161,6 @@ void parseLocationBlock(TokenList::const_iterator& it,TokenList::const_iterator 
         }
         else if (directive == "cgi" || directive == "cgi_ext")
         {
-            // Accept both 'cgi' (doc) and 'cgi_ext' (sample config)
             expect(it, end, TOK_WORD);
 
             if (it == end || it->type != TOK_WORD)

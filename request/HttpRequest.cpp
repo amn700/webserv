@@ -2,32 +2,6 @@
 #include "../response/response.hpp"
 #include <algorithm>
 
-static std::string lowerCopy(const std::string& value)
-{
-    std::string result = value;
-    for (size_t i = 0; i < result.size(); ++i)
-        result[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(result[i])));
-    return result;
-}
-
-static std::map<std::string, std::string>::const_iterator findHeaderInsensitive(
-    const std::map<std::string, std::string>& headers,
-    const std::string& wanted)
-{
-    const std::string wantedLower = lowerCopy(wanted);
-    for (std::map<std::string, std::string>::const_iterator it = headers.begin();
-         it != headers.end(); ++it)
-    {
-        if (lowerCopy(it->first) == wantedLower)
-            return it;
-    }
-    return headers.end();
-}
-
-// ============================================================
-// Free helper functions
-// ============================================================
-
 bool valid_request_line(const std::string& line)
 {
     size_t firstSpace = line.find(' ');
@@ -41,7 +15,7 @@ bool valid_request_line(const std::string& line)
 
     std::string method = line.substr(0, firstSpace);
     if (!(method == "GET" || method == "POST" || method == "DELETE"))
-        throw std::logic_error("501"); // distinguishes "not implemented" from generic 400
+        throw std::logic_error("501");
 
     std::string version = line.substr(secondSpace + 1);
     if (version.substr(0, 5) != "HTTP/")
@@ -192,9 +166,6 @@ bool method_allowed(const std::string& method, const ServerConfig::LocationConfi
     return loc->methods.count(toLower(method)) != 0;
 }
 
-// Strip a location's prefix from a path and guarantee a leading '/'.
-// Only strips when the location defines a custom root and is not the "/" location,
-// matching the original root-mapping semantics.
 static std::string strip_location_prefix(const std::string& path,
                                           const ServerConfig::LocationConfig* loc)
 {
@@ -218,16 +189,9 @@ static std::string strip_trailing_slash(std::string s)
     return s;
 }
 
-// ============================================================
-// Filesystem-level checks per method (GET / POST upload / DELETE)
-// ============================================================
-
 void check_path_get(validat& requ, const std::string& fs_path,
                      const ServerConfig::LocationConfig* loc, const std::string& method)
 {
-    // -------------------------
-    // POST (upload-like behavior)
-    // -------------------------
     if (method == "POST")
     {
         if (!loc || !loc->upload.enabled) {
@@ -266,7 +230,7 @@ void check_path_get(validat& requ, const std::string& fs_path,
         }
 
         requ.code = 200;
-        requ.path = loc->upload.dir; // directory where the upload handler should write
+        requ.path = loc->upload.dir;
         return;
     }
 
@@ -285,13 +249,10 @@ void check_path_get(validat& requ, const std::string& fs_path,
         return;
     }
 
-    // -------------------------
-    // DELETE
-    // -------------------------
     if (method == "DELETE")
     {
         if (S_ISDIR(st.st_mode)) {
-            requ.code = 403; // deleting directories not supported
+            requ.code = 403;
             requ.path = "";
             return;
         }
@@ -305,9 +266,6 @@ void check_path_get(validat& requ, const std::string& fs_path,
         return;
     }
 
-    // -------------------------
-    // GET
-    // -------------------------
     if (S_ISDIR(st.st_mode))
     {
         for (size_t i = 0; loc && i < loc->index.size(); i++) {
@@ -323,7 +281,7 @@ void check_path_get(validat& requ, const std::string& fs_path,
             }
         }
         if (loc && loc->autoindex) {
-            requ.code = 1001; // directory listing
+            requ.code = 1001;
             requ.path = fs_path;
             return;
         }
@@ -342,16 +300,12 @@ void check_path_get(validat& requ, const std::string& fs_path,
     requ.path = fs_path;
 }
 
-// ============================================================
-// HttpRequest member functions
-// ============================================================
 validat HttpRequest::validate_request(const ServerConfig& serv)
 {
     std::string current_path = this->path;
     const ServerConfig::LocationConfig* loc = best_match_location(current_path, serv);
     validat requ;
 
-    // --- Redirect (single hop; caller/client follows further redirects) ---
     if (loc && loc->redirect.enabled)
     {
         requ.code = loc->redirect.code;
@@ -365,7 +319,6 @@ validat HttpRequest::validate_request(const ServerConfig& serv)
         return requ;
     }
 
-    // --- CGI-enabled location: map the request to the script file itself ---
     if (loc && !loc->cgi.empty())
     {
         std::string root = serv.root;
@@ -414,7 +367,6 @@ validat HttpRequest::validate_request(const ServerConfig& serv)
         }
     }
 
-    // --- Upload-enabled location: write target is the upload dir, not document root ---
     if (loc && loc->upload.enabled && !loc->upload.dir.empty() &&
         this->path.find(loc->prefix) == 0)
     {
@@ -433,14 +385,11 @@ validat HttpRequest::validate_request(const ServerConfig& serv)
         return requ;
     }
 
-    // --- Default: map request path onto document root ---
     std::string root = serv.root;
     if (loc && !loc->root.empty())
         root = loc->root;
     root = strip_trailing_slash(root);
 
-    // Guard against a null loc: no location matched, so there's no
-    // prefix to strip — use the raw request path against the server root.
     std::string path_to_use = this->path;    std::string fs_path = root + path_to_use;
 
     check_path_get(requ, fs_path, loc, this->method);
@@ -521,11 +470,10 @@ HttpRequest::HttpRequest(const std::string& raw_request, const ServerConfig& ser
 
         this->query_params = pars_query(lines[0]);
 
-        validat result = validate_request(serv); // single call, no duplicate work
+        validat result = validate_request(serv);
         this->status = result.code;
         this->confurm_path = result.path;
 
-        // --- CGI detection / environment setup ---
         if (this->status == 200 || this->status == 1001) {
             this->detect_cgi_request(serv);
 

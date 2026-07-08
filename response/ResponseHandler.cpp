@@ -84,7 +84,6 @@ std::string getExtFromContentType(const std::string& ct)
     return ".bin";
 }
 
-// Joins a directory and a filename, inserting exactly one '/' between them.
 static std::string joinPath(const std::string& dir, const std::string& name)
 {
     if (dir.empty())
@@ -94,8 +93,6 @@ static std::string joinPath(const std::string& dir, const std::string& name)
     return dir + "/" + name;
 }
 
-// Strips surrounding whitespace/quotes and any trailing ";..." parameters
-// from a raw header value fragment (e.g. from Content-Disposition).
 static std::string trimUploadName(const std::string& name)
 {
     std::string::size_type start = name.find_first_not_of(" \t\r\n\f\v\"");
@@ -112,8 +109,6 @@ static std::string trimUploadName(const std::string& name)
     return value;
 }
 
-// Strips any directory components a (possibly hostile) client might have
-// included in a filename, keeping only the final path segment.
 static std::string getBasename(const std::string& name)
 {
     std::string cleaned = trimUploadName(name);
@@ -123,8 +118,6 @@ static std::string getBasename(const std::string& name)
     return cleaned.substr(slash_pos + 1);
 }
 
-// Returns the original filename the client sent (via X-File-Name or
-// Content-Disposition), or "" if none was provided.
 static std::string getOriginalFilename(const HttpRequest& req)
 {
     std::map<std::string, std::string>::const_iterator it = req.headers.find("X-File-Name");
@@ -153,8 +146,6 @@ static std::string getOriginalFilename(const HttpRequest& req)
     return "";
 }
 
-// Prefers the extension from the client's original filename (accurate).
-// Falls back to Content-Type sniffing only if no filename was supplied.
 static std::string resolveUploadExt(const HttpRequest& req, const std::string& originalName)
 {
     if (!originalName.empty())
@@ -171,9 +162,6 @@ static std::string resolveUploadExt(const HttpRequest& req, const std::string& o
     return ".bin";
 }
 
-// Appends "storedName -> originalName" to uploads.log in the target
-// directory, so the mapping survives without adding extra files that
-// would clutter autoindex or be independently GET/DELETE-able.
 static void logUploadMapping(const std::string& dir,
                               const std::string& storedName,
                               const std::string& originalName)
@@ -187,8 +175,6 @@ static void logUploadMapping(const std::string& dir,
         log << storedName << " -> " << originalName << "\n";
 }
 
-// RFC 1123 date format required for HTTP Date headers, e.g.
-// "Wed, 01 Jul 2026 12:00:00 GMT".
 static std::string getHttpDate()
 {
     time_t now = time(NULL);
@@ -541,12 +527,6 @@ Response ResponseHandler::handleGET(const std::string& path)
     return res;
 }
 
-// DELETE per RFC 2616 §9.7: a successful response SHOULD be 200 (OK) if
-// the response includes an entity describing the status, 202 (Accepted)
-// if the action has not yet been enacted, or 204 (No Content) if the
-// action has been enacted but the response includes no entity. We return
-// 200 with a short body describing the outcome, which is an explicitly
-// permitted form.
 Response ResponseHandler::handleDELETE()
 {
     Response res;
@@ -594,8 +574,6 @@ Response ResponseHandler::handleDELETE()
     return res;
 }
 
-// POST/upload per RFC 1945 §9.6: a 201 Created response MUST include a
-// Location header identifying the newly created resource's URI.
 Response ResponseHandler::handlePOST()
 {
     Response res;
@@ -631,10 +609,6 @@ Response ResponseHandler::handlePOST()
     std::string originalName = getOriginalFilename(req);
     std::string ext = resolveUploadExt(req, originalName);
 
-    // Atomically claim "upload<N><ext>" so two concurrent uploads can
-    // never win the same filename. O_CREAT|O_EXCL performs the
-    // check-and-create as a single kernel operation, closing the race
-    // that a separate stat()-then-open() would leave open.
     std::string fileName;
     int fd = -1;
     const int maxAttempts = 100000;
@@ -687,8 +661,6 @@ Response ResponseHandler::handlePOST()
     std::string basename = fileName.substr(fileName.find_last_of('/') + 1);
     logUploadMapping(dir, basename, originalName);
 
-    // RFC 1945 §9.6: 201 Created MUST carry a Location header pointing
-    // to the new resource.
     std::string location = req.path;
     if (!location.empty() && location[location.size() - 1] != '/')
         location += "/";
@@ -731,7 +703,6 @@ Response ResponseHandler::handleAutoIndex(const std::string& path)
 
         if (name == "." || name == "..")
             continue;
-        // uploads.log is bookkeeping metadata, not a browsable resource.
         if (name == "uploads.log")
             continue;
 

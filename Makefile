@@ -25,9 +25,6 @@ $(TARGET): $(OBJS)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-run: re
-	./$(TARGET) configurations/webserv.conf
-
 re: clean all
 
 clean:

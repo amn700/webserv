@@ -30,18 +30,6 @@ static std::string listenKey(const std::string& host, int port)
     return ss.str();
 }
 
-// struct addrinfo
-// {
-//   int ai_flags;			/* Input flags.  */
-//   int ai_family;		/* Protocol family for socket.  */
-//   int ai_socktype;		/* Socket type.  */
-//   int ai_protocol;		/* Protocol for socket.  */
-//   socklen_t ai_addrlen;		/* Length of socket address.  */
-//   struct sockaddr *ai_addr;	/* Socket address for socket.  */
-//   char *ai_canonname;		/* Canonical name for service location.  */
-//   struct addrinfo *ai_next;	/* Pointer to next in list.  */
-// };
-
 
 Socket::Socket(in_addr_t addr, int port)
     : _fd(-1)
@@ -84,9 +72,9 @@ Socket::Socket(const std::string& host, int port)
     struct addrinfo hints;
     struct addrinfo* result = NULL;
 
-    memset(&hints, 0, sizeof(hints));//clear the structure
-    hints.ai_family   = AF_INET;//ipv4 only
-    hints.ai_socktype = SOCK_STREAM; //tcp socket only
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family   = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
 
     const int rc = getaddrinfo(host.c_str(), 0, &hints, &result);
     if (rc != 0 || !result || !result->ai_addr || result->ai_family != AF_INET || result->ai_addrlen < (socklen_t)sizeof(sockaddr_in)) {
@@ -95,9 +83,9 @@ Socket::Socket(const std::string& host, int port)
         throw std::runtime_error("Invalid listen host: " + host);
     }
 
-    memset(&_addr, 0, sizeof(_addr));//clear the structure
-    _addr.sin_family = AF_INET; // ipv
-    _addr.sin_port   = htons(static_cast<unsigned short>(port));//
+    memset(&_addr, 0, sizeof(_addr));
+    _addr.sin_family = AF_INET;
+    _addr.sin_port   = htons(static_cast<unsigned short>(port));
     _addr.sin_addr   = ((struct sockaddr_in*)result->ai_addr)->sin_addr;
     freeaddrinfo(result);
 

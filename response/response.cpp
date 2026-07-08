@@ -44,8 +44,6 @@ int Response::getStatusCode() const
 
 std::string Response::buildResponse()
 {
-    // Content-Length is always recomputed here so callers never have to
-    // remember to set it manually before building.
     headers["Content-Length"] = intToString(static_cast<int>(body.size()));
 
     std::string response;

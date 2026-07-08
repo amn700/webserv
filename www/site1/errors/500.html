@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>404 Not Found</title>
+    <title>500 Internal Server Error</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -11,8 +11,8 @@
             min-height: 100vh;
             font-family: Georgia, "Times New Roman", serif;
             color: #e5eefc;
-            background: radial-gradient(circle at top left, rgba(251, 191, 36, 0.22), transparent 34%),
-                        radial-gradient(circle at 80% 10%, rgba(96, 165, 250, 0.18), transparent 28%),
+            background: radial-gradient(circle at top left, rgba(248, 113, 113, 0.22), transparent 34%),
+                        radial-gradient(circle at 80% 10%, rgba(248, 113, 113, 0.18), transparent 28%),
                         linear-gradient(160deg, #0b1020 0%, #121a31 100%);
             display: flex;
             align-items: center;
@@ -28,14 +28,14 @@
             font-weight: 700;
             letter-spacing: -0.05em;
             line-height: 1;
-            color: #a9b8d3;
+            color: #fca5a5;
             margin: 0;
-            text-shadow: 0 0 40px rgba(148, 163, 184, 0.2);
+            text-shadow: 0 0 40px rgba(248, 113, 113, 0.3);
         }
         .error-title {
             font-size: clamp(1.8rem, 4vw, 2.8rem);
             margin: 20px 0 10px;
-            color: #a9b8d3;
+            color: #fca5a5;
         }
         .error-desc {
             font-size: 1.1rem;
@@ -53,7 +53,7 @@
             margin: 20px 0;
         }
         .error-box h3 {
-            color: #60a5fa;
+            color: #fca5a5;
             margin-top: 0;
             font-family: Arial, sans-serif;
         }
@@ -64,7 +64,7 @@
             line-height: 1.8;
         }
         .error-box ul li::marker {
-            color: #60a5fa;
+            color: #fca5a5;
         }
         .btn {
             display: inline-flex;
@@ -103,44 +103,56 @@
             font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
         }
         .status-icon { font-size: 4rem; margin: 10px 0; }
-        .search-box {
-            margin: 20px 0;
-            padding: 12px 20px;
-            border-radius: 12px;
-            border: 1px solid rgba(148, 163, 184, 0.18);
+        .error-details {
             background: rgba(7, 12, 26, 0.7);
-            color: #e5eefc;
-            width: 100%;
-            max-width: 400px;
-            font-family: Arial, sans-serif;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: left;
+            font-family: "SFMono-Regular", monospace;
+            font-size: 0.85rem;
+            color: #a9b8d3;
+            overflow-x: auto;
         }
     </style>
 </head>
 <body>
     <div class="error-container">
-        <div class="status-icon">🔍</div>
-        <h1 class="error-code">404</h1>
-        <h2 class="error-title">Page Not Found</h2>
+        <div class="status-icon">💥</div>
+        <h1 class="error-code">500</h1>
+        <h2 class="error-title">Internal Server Error</h2>
         <p class="error-desc">
-            The page you're looking for doesn't exist or has been moved.
-            The server could not find the requested resource.
+            Something went wrong on our end. The server encountered an unexpected condition
+            that prevented it from fulfilling your request.
         </p>
         <div class="error-box">
-            <h3>🧭 What You Can Do</h3>
+            <h3>🔧 Possible Issues</h3>
             <ul>
-                <li>Check the URL for typos or incorrect paths</li>
-                <li>Try navigating from the <a href="/" style="color: #60a5fa;">home page</a></li>
-                <li>Use the search bar below to find what you're looking for</li>
-                <li>Visit our <a href="/list/" style="color: #60a5fa;">directory listing</a></li>
+                <li>Server configuration error or misconfiguration</li>
+                <li>Application bug or unhandled exception</li>
+                <li>Database connection failure</li>
+                <li>Insufficient server resources (memory, disk space)</li>
+                <li>Permissions or file access issues</li>
             </ul>
+            <div class="error-details">
+                <strong>Error ID:</strong> <span id="error-id"><?php echo uniqid(); ?></span><br>
+                <strong>Timestamp:</strong> <span id="timestamp"><?php echo date('Y-m-d H:i:s'); ?></span><br>
+                <strong>Path:</strong> <span id="path"><?php echo htmlspecialchars($_SERVER['REQUEST_URI'] ?? '/'); ?></span>
+            </div>
         </div>
-        <input class="search-box" type="text" placeholder="🔎 Search for pages..." onkeypress="if(event.key==='Enter') window.location.href='/search?q='+encodeURIComponent(this.value)">
         <div class="links">
             <a class="btn btn-primary" href="/">🏠 Home</a>
-            <a class="btn" href="javascript:history.back()">⬅ Go Back</a>
+            <a class="btn" href="javascript:location.reload()">🔄 Retry</a>
             <a class="btn" href="/new/">📋 Try /new/</a>
         </div>
-        <p class="tiny">Error 404 · The requested URL was not found on this server.</p>
+        <p class="tiny">Error 500 · Our team has been notified. Please try again later.</p>
     </div>
+    <script>
+        // Generate a random error ID if PHP not available
+        document.getElementById('error-id').textContent = 
+            'ERR-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+        document.getElementById('timestamp').textContent = new Date().toISOString();
+        document.getElementById('path').textContent = window.location.pathname;
+    </script>
 </body>
 </html>

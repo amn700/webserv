@@ -2,7 +2,6 @@
 #define CONFIGTYPES_HPP
 
 #include <string>
-// #include <iostream>
 #include <vector>
 #include <map>
 #include <set>
@@ -10,20 +9,20 @@
 
 struct ServerConfig {
     struct Listen {
-        std::string host; // "127.0.0.1" or "0.0.0.0" l ip dial server
-        int port;         // 1 .. 65535 ..... ex: 8080 port dial server
+        std::string host;
+        int port;
     };
-    std::vector<Listen> listens;                 // interface:port pairs
+    std::vector<Listen> listens;
 
-    std::string server_name;                     // optional
-    std::string root;                            // required
-    size_t client_max_body_size;                 // bytes; 0 => use default
-    std::map<int, std::string> error_pages;      // 404 -> "path"
+    std::string server_name;
+    std::string root;
+    size_t client_max_body_size;
+    std::map<int, std::string> error_pages;
     struct LocationConfig {
         struct Redirect {
             bool enabled;
-            int code;               // 301/302/...
-            std::string target;     // "/new" or full URL
+            int code;
+            std::string target;
             Redirect() : enabled(false), code(0) {}
         };
         struct UploadConfig {
@@ -32,17 +31,17 @@ struct ServerConfig {
             UploadConfig() : enabled(false) {}
         };
         typedef std::set<std::string> MethodSet;
-        typedef std::map<std::string, std::string> CgiMap; // ".py" -> "/usr/bin/python3" ... 
+        typedef std::map<std::string, std::string> CgiMap; 
         
         
-        std::string prefix;                 // "/upload/" "/cgi-bin/" etc.
-        MethodSet methods;                  // allowed methods; empty => server/default
-        Redirect redirect;                  // optional
-        std::string root;                   // optional override
-        bool autoindex;                     // default false
-        std::vector<std::string> index;     // ["index.html", ...]
-        UploadConfig upload;                // optional
-        CgiMap cgi;                         // optional
+        std::string prefix;
+        MethodSet methods;
+        Redirect redirect;
+        std::string root;
+        bool autoindex;
+        std::vector<std::string> index;
+        UploadConfig upload;
+        CgiMap cgi;
 
         LocationConfig() : autoindex(false) {}
     };
@@ -56,35 +55,17 @@ struct Config {
     std::vector<ServerConfig> servers;
 };
 
-// struct Listen {
-//     std::string host; // "127.0.0.1" or "0.0.0.0" l ip dial server
-//     int port;         // 1 .. 65535 ..... ex: 8080 port dial server
-// };
-
-// struct Redirect {
-//     bool enabled;
-//     int code;               // 301/302/...
-//     std::string target;     // "/new" or full URL
-//     Redirect() : enabled(false), code(0) {}
-// };
-
-// struct UploadConfig {
-//     bool enabled;
-//     std::string dir;
-//     UploadConfig() : enabled(false) {}
-// };
-
 enum TokenType {
-    TOK_WORD,     // identifiers + values: listen, 127.0.0.1, /upload/, on, 404, etc.
-    TOK_LBRACE,   // {
-    TOK_RBRACE,   // }
-    TOK_SEMI,     // ;
-    TOK_EOF       // end of input (optional but very convenient for parser)
+    TOK_WORD,
+    TOK_LBRACE,
+    TOK_RBRACE,
+    TOK_SEMI,
+    TOK_EOF
 };
 
 struct Token {
     TokenType type;
-    std::string text; // only used for TOK_WORD (and maybe TOK_EOF = "")
+    std::string text;
     int line;
 
     Token() : type(TOK_EOF), text(""), line(1) {}
@@ -92,29 +73,13 @@ struct Token {
 };
 typedef std::vector<Token> TokenList;
 
-// typedef std::set<std::string> MethodSet;
-// typedef std::map<std::string, std::string> CgiMap; // ".py" -> "/usr/bin/python3" ...
-
-// struct LocationConfig {
-//     std::string prefix;                 // "/upload/" "/cgi-bin/" etc.
-//     MethodSet methods;                  // allowed methods; empty => server/default
-//     Redirect redirect;                  // optional
-//     std::string root;                   // optional override
-//     bool autoindex;                     // default false
-//     std::vector<std::string> index;     // ["index.html", ...]
-//     UploadConfig upload;                // optional
-//     CgiMap cgi;                         // optional
-
-//     LocationConfig() : autoindex(false) {}
-// };
-
 
 
 
 struct DirectiveProps {
-    bool seen;           // have we encountered it (for the current server block)
-    bool isMandatory;    // must exist?
-    bool allowMultiple;  // can appear more than once?
+    bool seen;
+    bool isMandatory;
+    bool allowMultiple;
 
     DirectiveProps() : seen(false), isMandatory(false), allowMultiple(false) {}
     DirectiveProps(bool s, bool m, bool multi)
@@ -129,36 +94,12 @@ struct DirectiveInfo {
     DirectiveInfo() {
         content["listen"]               = DirectiveProps(false, true,  true);
         content["server_name"]          = DirectiveProps(false, false, false);
-        content["root"]                 = DirectiveProps(false, true,  false); // maybe maybe
+        content["root"]                 = DirectiveProps(false, true,  false);
         content["client_max_body_size"] = DirectiveProps(false, false, false);
         content["error_page"]           = DirectiveProps(false, false, true);
         content["location"]             = DirectiveProps(false, false, true);
     }
 };
-
-
-//all possible location block content
-/*
-    prefix ::: mandatory, only one allowed;
-        ex: /upload/ /cgi-bin/
-    allowed_methods  ::: optional, only one allowed; default empty (use server/default)
-        ex: GET POST DELETE
-    redirect  ::: optional, only one allowed; default none
-        ex: return 301 http://example.com/;
-    root    ::: optional, only one allowed; default none (use server/default)
-        ex: root /var/www/html/upload/;
-    autoindex  ::: optional, only one allowed; default false
-        ex: autoindex on;
-    index  ::: optional, only one allowed; default empty
-        ex: index index.html index.htm;
-    upload  ::: optional, only one allowed; default none
-        ex: upload /var/www/html/upload/;
-    cgi  ::: optional, multiple allowed; default empty
-        ex: cgi .php /usr/bin/php-cgi;
-    return  ::: optional, only one allowed; default none
-        ex: return 301 http://example.com/;
-*/
-
 
 
 struct LocationProps {

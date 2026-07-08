@@ -20,7 +20,6 @@ void display_data(const Config& conf) {
         for (std::map<int, std::string>::const_iterator it = s.error_pages.begin(); it != s.error_pages.end(); ++it) {
             std::cout << "    - " << it->first << ": " << it->second << "\n";
         }
-        //location data displayed here
         std::cout << "  Locations:\n";
         for (size_t k = 0; k < s.locations.size(); ++k) {
             const ServerConfig::LocationConfig& loc = s.locations[k];
@@ -62,17 +61,6 @@ void display_data(const Config& conf) {
     }
 }
 
-
-/*    std::cout << "Listener sockets created:\n";
-    for (std::map<ListenKey, int>::const_iterator it = keyToFd.begin(); it != keyToFd.end(); ++it) {
-        const ListenKey& key = it->first;
-        const int fd = it->second;
-        struct in_addr inAddr;
-        inAddr.s_addr = key.first;
-        //manual spliting without using inet_ntoa
-        unsigned char* bytes = (unsigned char*)&inAddr.s_addr;
-        std::cout << "  " << (int)bytes[0] << "." << (int)bytes[1] << "." << (int)bytes[2] << "." << (int)bytes[3] << ":" << key.second << " -> fd " << fd << std::endl;
-    }*/
 int main (int argc, char ** argv)
 {
     if (argc != 2) {
@@ -86,7 +74,6 @@ int main (int argc, char ** argv)
         std::cerr << "Error: failed to load config file: " << argv[1] << ": " << errorMessage << std::endl;
         return 1;
     }
-    // display_data(conf);
     try {
         WebServer server(conf);
         server.run ();
