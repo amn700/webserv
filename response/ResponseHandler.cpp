@@ -17,14 +17,14 @@ ResponseHandler::ResponseHandler(const HttpRequest& r, const ServerConfig& c)
 {
 }
 
-std::string toString(int n)
+std::string ResponseHandler::toString(int n)
 {
     std::stringstream ss;
     ss << n;
     return ss.str();
 }
 
-bool readFile(const std::string& path, std::string& content)
+bool ResponseHandler::readFile(const std::string& path, std::string& content)
 {
     std::ifstream file(path.c_str(), std::ios::binary);
 
@@ -38,7 +38,7 @@ bool readFile(const std::string& path, std::string& content)
     return true;
 }
 
-std::string getMimeType(const std::string& path)
+std::string ResponseHandler::getMimeType(const std::string& path)
 {
     size_t pos_dot = path.find_last_of('.');
 

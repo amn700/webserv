@@ -8,7 +8,6 @@
 #include <sys/socket.h>
 #include "response/response.hpp"
 #include "response/ResponseHandler.hpp"
-#include <netdb.h>
 #include <netinet/in.h>
 
 #include <errno.h>
@@ -454,4 +453,3 @@ bool WebServer::isListenerFd(int fd) const
             return true;
     return false;
 }
-

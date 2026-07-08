@@ -2,6 +2,26 @@
 #include "../response/response.hpp"
 #include <algorithm>
 
+static std::map<std::string, std::string>::const_iterator findHeaderInsensitive(
+    const std::map<std::string, std::string>& headers,
+    const std::string& wanted)
+{
+    std::string wantedLower = wanted;
+    for (size_t i = 0; i < wantedLower.size(); ++i)
+        wantedLower[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(wantedLower[i])));
+
+    for (std::map<std::string, std::string>::const_iterator it = headers.begin();
+         it != headers.end(); ++it)
+    {
+        std::string key = it->first;
+        for (size_t i = 0; i < key.size(); ++i)
+            key[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(key[i])));
+        if (key == wantedLower)
+            return it;
+    }
+    return headers.end();
+}
+
 bool valid_request_line(const std::string& line)
 {
     size_t firstSpace = line.find(' ');

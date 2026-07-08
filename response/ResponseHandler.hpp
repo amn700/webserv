@@ -26,9 +26,9 @@ class ResponseHandler
 
         ResponseHandler& operator=(const ResponseHandler& other);
 
-bool        readFile(const std::string& path, std::string& content);
-std::string getMimeType(const std::string& path);
-std::string getExtFromContentType(const std::string& ct);
-std::string toString(int n);
-
+    bool        readFile(const std::string& path, std::string& content);
+    std::string getMimeType(const std::string& path);
+    std::string getExtFromContentType(const std::string& ct);
+    std::string toString(int n);
+};
 #endif
